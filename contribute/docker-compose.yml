@@ -1,0 +1,70 @@
+name: astrodex
+
+# Runs on Unraid (kiwi). Caddy on VPS proxies to this via Tailscale.
+# Image built by GitHub Actions or locally: pushed to GHCR.
+# Komodo manages the stack.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: astrodex-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: astrodex
+      POSTGRES_PASSWORD: ${ASTRODEX_DB_PASSWORD}
+      POSTGRES_DB: astrodex
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init/01-schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U astrodex -d astrodex"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - astrodex-internal
+
+  api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    container_name: astrodex-api
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgres://astrodex:${ASTRODEX_DB_PASSWORD}@postgres:5432/astrodex?sslmode=disable
+      PORT: "3000"
+      SOLANA_RPC_URL: ${ASTRODEX_SOLANA_RPC_URL:-https://api.devnet.solana.com}
+      PROGRAM_ID: ${ASTRODEX_PROGRAM_ID:-}
+      NODE_ENV: production
+    ports:
+      - "8920:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://0.0.0.0:3000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+    networks:
+      - astrodex-internal
+
+  web:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+    container_name: astrodex-web
+    restart: unless-stopped
+    ports:
+      - "8921:80"
+    networks:
+      - astrodex-internal
+
+volumes:
+  postgres_data:
+    name: astrodex_postgres_data
+
+networks:
+  astrodex-internal:
+    name: astrodex-internal
+    driver: bridge

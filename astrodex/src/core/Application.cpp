@@ -1065,9 +1065,10 @@ void Application::renderQuadView(float dt) {
   int w = m_window->getWidth();
   int h = m_window->getHeight();
 
-  int baseSize = std::min(w, h) / 3;
+  int baseSize = std::min(w, h) / 5;
   int cx = w / 2;
   int cy = h / 2;
+  int gap = baseSize / 4;
 
   struct QuadFace {
     int x, y;
@@ -1075,10 +1076,10 @@ void Application::renderQuadView(float dt) {
   };
 
   QuadFace faces[] = {
-    {cx - baseSize / 2, h - baseSize,     static_cast<float>(M_PI)},
-    {cx - baseSize / 2, 0,                0.0f},
-    {0,                 cy - baseSize / 2, static_cast<float>(3.0 * M_PI / 2.0)},
-    {w - baseSize,      cy - baseSize / 2, static_cast<float>(M_PI / 2.0)}
+    {cx - baseSize / 2, cy + baseSize / 2 + gap,  static_cast<float>(M_PI)},
+    {cx - baseSize / 2, cy - baseSize * 3 / 2 - gap, 0.0f},
+    {cx - baseSize * 3 / 2 - gap, cy - baseSize / 2, static_cast<float>(3.0 * M_PI / 2.0)},
+    {cx + baseSize / 2 + gap,     cy - baseSize / 2, static_cast<float>(M_PI / 2.0)}
   };
 
   glClearColor(0.0f, 0.0f, 0.0f, 1.0f);

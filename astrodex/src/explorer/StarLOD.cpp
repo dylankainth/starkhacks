@@ -25,7 +25,7 @@ StarLOD::~StarLOD() {
 bool StarLOD::load(const std::string& binPath) {
     m_fd = open(binPath.c_str(), O_RDONLY);
     if (m_fd < 0) {
-        LOG_ERROR("Failed to open LOD file: {}", binPath);
+        LOG_INFO("Gaia LOD not found (optional, 15.7GB): {} — using HYG 120k stars", binPath);
         return false;
     }
 

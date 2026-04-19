@@ -397,6 +397,9 @@ void Application::renderGalaxy(float dt) {
         {0.f, 0.f}, io.DisplaySize, IM_COL32(0, 0, 0, blackAlpha));
   }
 
+  renderGestureHUD();
+  renderHelpOverlay();
+
   m_ui->endFrame();
   m_renderer->endFrame();
 
@@ -768,6 +771,14 @@ void Application::handleInput() {
 
   if (ImGui::GetIO().WantCaptureKeyboard && !m_mouseLocked) return;
 
+  // F1 toggle help overlay
+  static bool f1WasPressed = false;
+  bool f1Pressed = glfwGetKey(window, GLFW_KEY_F1) == GLFW_PRESS;
+  if (f1Pressed && !f1WasPressed) {
+    m_showHelp = !m_showHelp;
+  }
+  f1WasPressed = f1Pressed;
+
   // F5 toggle quad-view (Pepper's Ghost hologram mode)
   static bool f5WasPressed = false;
   bool f5Pressed = glfwGetKey(window, GLFW_KEY_F5) == GLFW_PRESS;
@@ -925,6 +936,9 @@ void Application::render(float dt) {
     m_renderer->setTimeScale(static_cast<float>(simResult.newTimeScale));
   }
 
+  renderGestureHUD();
+  renderHelpOverlay();
+
   m_ui->endFrame();
   m_renderer->endFrame();
 
@@ -970,6 +984,81 @@ void Application::handleGestureInput(float dt) {
     m_camera->rotate(dx, dy);
   }
 
+}
+
+void Application::renderGestureHUD() {
+  ImGuiIO& io = ImGui::GetIO();
+  bool gestureConnected = m_gestureInput && m_gestureInput->isConnected();
+
+  float hudW = 220.0f;
+  float hudH = gestureConnected ? 100.0f : 30.0f;
+  ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x - hudW - 10, 10));
+  ImGui::SetNextWindowSize(ImVec2(hudW, hudH));
+  ImGui::SetNextWindowBgAlpha(0.75f);
+  if (ImGui::Begin("##gesture_hud", nullptr,
+                   ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove |
+                       ImGuiWindowFlags_NoSavedSettings |
+                       ImGuiWindowFlags_NoFocusOnAppearing |
+                       ImGuiWindowFlags_NoNav)) {
+    if (!gestureConnected) {
+      ImGui::TextColored(ImVec4(0.5f, 0.5f, 0.5f, 1.0f), "Gesture: waiting (UDP 9001)");
+    } else {
+      auto gs = m_gestureInput->getState();
+      ImVec4 col = {0.3f, 1.0f, 0.3f, 1.0f};
+      if (gs.gesture == "none") col = {0.6f, 0.6f, 0.6f, 1.0f};
+
+      ImGui::TextColored(col, "%s", gs.gesture.c_str());
+      ImGui::SameLine();
+      ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1.0f), "(%s %.0f%%)",
+                         gs.hand.c_str(), gs.confidence * 100.0f);
+      ImGui::TextColored(ImVec4(0.5f, 0.8f, 1.0f, 1.0f),
+                         "Palm: %.2f, %.2f, %.2fm", gs.palmX, gs.palmY, gs.palmZ);
+      ImGui::TextColored(ImVec4(0.8f, 0.8f, 0.5f, 1.0f),
+                         "Fingers: %d  |  %s",
+                         gs.fingersExtended,
+                         m_quadViewEnabled ? "HOLO" : "normal");
+    }
+  }
+  ImGui::End();
+}
+
+void Application::renderHelpOverlay() {
+  if (!m_showHelp) return;
+
+  ImGuiIO& io = ImGui::GetIO();
+  float w = 340.0f, h = 320.0f;
+  ImGui::SetNextWindowPos(ImVec2((io.DisplaySize.x - w) / 2,
+                                 (io.DisplaySize.y - h) / 2));
+  ImGui::SetNextWindowSize(ImVec2(w, h));
+  ImGui::SetNextWindowBgAlpha(0.92f);
+  if (ImGui::Begin("Keyboard Shortcuts", &m_showHelp,
+                   ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse |
+                       ImGuiWindowFlags_NoSavedSettings)) {
+    ImGui::TextColored(ImVec4(1, 0.8f, 0.3f, 1), "Navigation");
+    ImGui::BulletText("WASD       Move camera");
+    ImGui::BulletText("Q / E      Move down / up");
+    ImGui::BulletText("Shift      Sprint (5x speed)");
+    ImGui::BulletText("Tab        Toggle mouse lock");
+    ImGui::BulletText("[ / ]      Camera speed -/+");
+    ImGui::BulletText("Scroll     Zoom in/out");
+    ImGui::Separator();
+    ImGui::TextColored(ImVec4(1, 0.8f, 0.3f, 1), "Modes");
+    ImGui::BulletText("F1         This help");
+    ImGui::BulletText("F5         Hologram quad-view");
+    ImGui::BulletText("Escape     Back / exit");
+    ImGui::BulletText("Space      Pause simulation");
+    ImGui::BulletText("+ / -      Time scale");
+    ImGui::Separator();
+    ImGui::TextColored(ImVec4(1, 0.8f, 0.3f, 1), "Solar System");
+    ImGui::BulletText("1-5        Focus body");
+    ImGui::Separator();
+    ImGui::TextColored(ImVec4(0.5f, 0.8f, 1.0f, 1), "Gestures (iPhone)");
+    ImGui::BulletText("Open Palm  Zoom (depth)");
+    ImGui::BulletText("Pinch      Rotate");
+    ImGui::BulletText("Point      Precision rotate");
+    ImGui::BulletText("Fist       Move forward");
+  }
+  ImGui::End();
 }
 
 void Application::renderQuadView(float dt) {
@@ -1042,17 +1131,12 @@ void Application::renderQuadView(float dt) {
                        ImGuiWindowFlags_NoSavedSettings |
                        ImGuiWindowFlags_AlwaysAutoResize |
                        ImGuiWindowFlags_NoFocusOnAppearing)) {
-    bool gestureConnected = m_gestureInput && m_gestureInput->isConnected();
-    ImGui::TextColored(ImVec4(0.3f, 1.0f, 0.3f, 1.0f), "HOLOGRAM MODE");
-    ImGui::SameLine();
-    if (gestureConnected) {
-      auto gs = m_gestureInput->getState();
-      ImGui::TextColored(ImVec4(0.3f, 1.0f, 0.3f, 1.0f), " | %s", gs.gesture.c_str());
-    } else {
-      ImGui::TextColored(ImVec4(1.0f, 0.4f, 0.4f, 1.0f), " | No Gesture");
-    }
+    ImGui::TextColored(ImVec4(0.3f, 1.0f, 0.3f, 1.0f), "HOLOGRAM MODE [F5]");
   }
   ImGui::End();
+
+  renderGestureHUD();
+  renderHelpOverlay();
 
   auto simResult = m_ui->renderSimulationControls(
       m_renderer->isPaused(), static_cast<double>(m_renderer->timeScale()),

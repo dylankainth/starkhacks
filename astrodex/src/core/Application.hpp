@@ -43,6 +43,8 @@ private:
     void handleInput();
     void handleGestureInput(float deltaTime);
     void renderQuadView(float dt);
+    void renderGestureHUD();
+    void renderHelpOverlay();
     void loadExoplanetIntoSimulation(const ExoplanetData& exo);
     void loadPlanet(const std::string& name);
 
@@ -102,6 +104,9 @@ private:
 
     // Quad-view Pepper's Ghost
     bool m_quadViewEnabled = false;
+
+    // Help overlay
+    bool m_showHelp = false;
 };
 
 }  // namespace astrocore

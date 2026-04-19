@@ -8,6 +8,7 @@ import { COLS, createState, drop } from './game';
 import { ParticleField } from './particles';
 import { initGestures } from './gestures';
 import { createSidePanel, SIDE_PANEL_LAYER } from './sidePanel';
+import { initCalibration, computeQuadRect, type Quad } from './calibration';
 
 const canvas = document.getElementById('stage') as HTMLCanvasElement;
 
@@ -67,16 +68,26 @@ function resetGame(): void {
   refreshCursor();
 }
 
+const calibration = initCalibration();
+
 initGestures({
   onColumnChange: (col) => {
+    if (calibration.isActive()) return;
     cursorCol = col;
     refreshCursor();
   },
-  onDrop: () => tryDrop(),
-  onReset: () => resetGame(),
+  onDrop: () => {
+    if (calibration.isActive()) return;
+    tryDrop();
+  },
+  onReset: () => {
+    if (calibration.isActive()) return;
+    resetGame();
+  },
 }).catch((e) => console.warn('[main] Gestures init error:', e));
 
 window.addEventListener('keydown', (e) => {
+  if (calibration.isActive()) return;
   if (e.key === 'ArrowLeft') {
     cursorCol = Math.max(0, cursorCol - 1);
     refreshCursor();
@@ -137,7 +148,9 @@ const composers: EffectComposer[] = [
   makeComposer(rightCam),  // right quadrant
 ];
 
-let lastQuadSize = 0;
+// Order matches the composers array.
+const quadOrder: Quad[] = ['top', 'bottom', 'left', 'right'];
+const lastSizes: number[] = [0, 0, 0, 0];
 
 function resize(): void {
   renderer.setSize(window.innerWidth, window.innerHeight, false);
@@ -164,14 +177,7 @@ function tick(): void {
 
   const w = window.innerWidth;
   const h = window.innerHeight;
-  const size = Math.floor(Math.min(w, h) / 3);
-  const cx = Math.floor(w / 2);
-  const cy = Math.floor(h / 2);
-
-  if (size !== lastQuadSize) {
-    for (const c of composers) c.setSize(size, size);
-    lastQuadSize = size;
-  }
+  const baseSize = Math.floor(Math.min(w, h) / 3);
 
   // Full-black wipe each frame.
   renderer.setScissorTest(false);
@@ -179,16 +185,15 @@ function tick(): void {
   renderer.setScissor(0, 0, w, h);
   renderer.clear(true, true, true);
 
-  const rects: [number, number][] = [
-    [cx - size / 2, h - size],      // top    — back cam
-    [cx - size / 2, 0],             // bottom — front cam
-    [0, cy - size / 2],             // left
-    [w - size, cy - size / 2],      // right
-  ];
   for (let i = 0; i < 4; i++) {
-    const [x, y] = rects[i];
-    renderer.setViewport(x, y, size, size);
-    renderer.setScissor(x, y, size, size);
+    const quad = quadOrder[i];
+    const rect = computeQuadRect(quad, baseSize, w, h, calibration.get(quad));
+    if (lastSizes[i] !== rect.size) {
+      composers[i].setSize(rect.size, rect.size);
+      lastSizes[i] = rect.size;
+    }
+    renderer.setViewport(rect.x, rect.y, rect.size, rect.size);
+    renderer.setScissor(rect.x, rect.y, rect.size, rect.size);
     renderer.setScissorTest(true);
     composers[i].render();
   }

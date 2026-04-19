@@ -6,7 +6,7 @@ import RealityKit
 
 @main
 struct HoloGestureApp: App {
-    var body: some Scene {
+    var body: some SwiftUI.Scene {
         WindowGroup {
             ContentView()
         }
@@ -31,6 +31,19 @@ struct ContentView: View {
             ARViewContainer(session: streamer.arSession)
                 .ignoresSafeArea()
 
+            // LiDAR depth overlay — fixed to screen bounds, clipped to prevent layout blowup
+            if streamer.showDepth, let depthImg = streamer.depthImage {
+                GeometryReader { geo in
+                    Image(uiImage: depthImg)
+                        .resizable()
+                        .scaledToFill()
+                        .frame(width: geo.size.width, height: geo.size.height)
+                        .clipped()
+                }
+                .ignoresSafeArea()
+                .allowsHitTesting(false)
+            }
+
             // Overlay UI
             VStack(spacing: 0) {
                 // Top controls
@@ -41,23 +54,45 @@ struct ContentView: View {
                             .textFieldStyle(.roundedBorder)
                             .keyboardType(.decimalPad)
                             .autocorrectionDisabled()
+                            .submitLabel(.done)
 
                         TextField("Port", text: $port)
                             .textFieldStyle(.roundedBorder)
                             .keyboardType(.numberPad)
                             .frame(width: 80)
+                            .submitLabel(.done)
                     }
                     .padding(.horizontal, 20)
 
-                    // Start/Stop button
-                    Button(action: toggleStreaming) {
-                        Text(isStreaming ? "Stop" : "Start")
-                            .font(.headline)
-                            .foregroundColor(.white)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 12)
-                            .background(isStreaming ? Color.red : Color.green)
-                            .cornerRadius(10)
+                    // Start/Stop button + toggles
+                    HStack(spacing: 12) {
+                        Button(action: toggleStreaming) {
+                            Text(isStreaming ? "Stop" : "Start")
+                                .font(.headline)
+                                .foregroundColor(.white)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 12)
+                                .background(isStreaming ? Color.red : Color.green)
+                                .cornerRadius(10)
+                        }
+
+                        Button(action: { streamer.showDepth.toggle() }) {
+                            Image(systemName: streamer.showDepth ? "camera.filters" : "camera")
+                                .font(.title3)
+                                .foregroundColor(.white)
+                                .frame(width: 44, height: 44)
+                                .background(streamer.showDepth ? Color.blue : Color.gray.opacity(0.6))
+                                .cornerRadius(10)
+                        }
+
+                        Button(action: { streamer.mirrorMode.toggle() }) {
+                            Image(systemName: streamer.mirrorMode ? "arrow.left.and.right.righttriangle.left.righttriangle.right.fill" : "arrow.left.and.right.righttriangle.left.righttriangle.right")
+                                .font(.title3)
+                                .foregroundColor(.white)
+                                .frame(width: 44, height: 44)
+                                .background(streamer.mirrorMode ? Color.orange : Color.gray.opacity(0.6))
+                                .cornerRadius(10)
+                        }
                     }
                     .padding(.horizontal, 20)
                 }
@@ -96,6 +131,19 @@ struct ContentView: View {
                     .cornerRadius(12)
                     .padding(.horizontal, 20)
 
+                    // Mode indicators
+                    if streamer.mirrorMode {
+                        HStack {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .foregroundColor(.orange)
+                            Text("Mirror Mode (camera facing user)")
+                                .font(.caption)
+                                .foregroundColor(.orange)
+                        }
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 4)
+                    }
+
                     // Status bar
                     HStack {
                         Circle()
@@ -127,6 +175,9 @@ struct ContentView: View {
                     )
                 )
             }
+        }
+        .onTapGesture {
+            UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
         }
         .onAppear {
             streamer.startBrowsing()
@@ -182,10 +233,6 @@ struct ContentView: View {
         case .pinch: return "Pinch"
         case .openPalm: return "Open Palm"
         case .fist: return "Fist"
-        case .swipeLeft: return "Swipe Left"
-        case .swipeRight: return "Swipe Right"
-        case .swipeUp: return "Swipe Up"
-        case .swipeDown: return "Swipe Down"
         case .none: return "No Gesture"
         }
     }
@@ -196,10 +243,6 @@ struct ContentView: View {
         case .pinch: return "\u{1F90F}"
         case .openPalm: return "\u{1F590}\u{FE0F}"
         case .fist: return "\u{270A}"
-        case .swipeLeft: return "\u{2B05}\u{FE0F}"
-        case .swipeRight: return "\u{27A1}\u{FE0F}"
-        case .swipeUp: return "\u{2B06}\u{FE0F}"
-        case .swipeDown: return "\u{2B07}\u{FE0F}"
         case .none: return "\u{1F44B}"
         }
     }

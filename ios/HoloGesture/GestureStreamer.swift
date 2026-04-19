@@ -11,10 +11,6 @@ enum GestureType: String {
     case pinch
     case openPalm = "open_palm"
     case fist
-    case swipeLeft = "swipe_left"
-    case swipeRight = "swipe_right"
-    case swipeUp = "swipe_up"
-    case swipeDown = "swipe_down"
     case none
 }
 
@@ -49,6 +45,11 @@ final class GestureStreamer: NSObject, ObservableObject {
     @Published var discoveredHost: String = ""
     @Published var discoveredPort: UInt16 = 0
     @Published var fps: Double = 0.0
+    @Published var depthImage: UIImage?
+    @Published var showDepth: Bool = false
+
+    // When true, flips palmX for camera facing the user (mounted inside Pepper's Ghost box)
+    @Published var mirrorMode: Bool = false
 
     // MARK: - Networking
 
@@ -75,12 +76,6 @@ final class GestureStreamer: NSObject, ObservableObject {
     }()
 
     private let visionQueue = DispatchQueue(label: "com.holoGesture.vision", qos: .userInitiated)
-
-    // MARK: - Gesture Tracking
-
-    private var previousPalmPositions: [(time: TimeInterval, x: Double, y: Double)] = []
-    private let swipeVelocityThreshold: Double = 0.4
-    private let swipeHistoryWindow: TimeInterval = 0.2
 
     // MARK: - FPS Tracking
 
@@ -127,7 +122,6 @@ final class GestureStreamer: NSObject, ObservableObject {
 
         frameCount = 0
         sendTimestamps.removeAll()
-        previousPalmPositions.removeAll()
 
         startHeartbeat()
         setState(.streaming)
@@ -282,18 +276,6 @@ final class GestureStreamer: NSObject, ObservableObject {
         sendJSON(packet)
     }
 
-    private func sendVelocityEvent(hand: String, vx: Double, vy: Double, timestamp: TimeInterval) {
-        let packet: [String: Any] = [
-            "type": "velocity",
-            "hand": hand,
-            "vx": round(vx * 1000) / 1000,
-            "vy": round(vy * 1000) / 1000,
-            "vz": 0.0,
-            "timestamp": timestamp
-        ]
-        sendJSON(packet)
-    }
-
     // MARK: - FPS Tracking
 
     private func recordSendAndUpdateFPS() {
@@ -309,6 +291,77 @@ final class GestureStreamer: NSObject, ObservableObject {
         let currentFps = Double(sendTimestamps.count - 1) / elapsed
         DispatchQueue.main.async { [weak self] in
             self?.fps = currentFps
+        }
+    }
+
+    // MARK: - Depth Map Visualization
+
+    private func renderDepthImage(from depthMap: CVPixelBuffer) {
+        let width = CVPixelBufferGetWidth(depthMap)
+        let height = CVPixelBufferGetHeight(depthMap)
+
+        CVPixelBufferLockBaseAddress(depthMap, .readOnly)
+        defer { CVPixelBufferUnlockBaseAddress(depthMap, .readOnly) }
+
+        guard let base = CVPixelBufferGetBaseAddress(depthMap) else { return }
+        let rowBytes = CVPixelBufferGetBytesPerRow(depthMap)
+        let floatPtr = base.assumingMemoryBound(to: Float32.self)
+
+        // Find min/max depth for normalization (typical range 0.2m - 5m)
+        var minD: Float = 0.2
+        var maxD: Float = 5.0
+        _ = minD; _ = maxD
+
+        let bytesPerPixel = 4
+        var pixelData = [UInt8](repeating: 0, count: width * height * bytesPerPixel)
+
+        for y in 0..<height {
+            let rowStart = y * rowBytes / MemoryLayout<Float32>.size
+            for x in 0..<width {
+                let depth = floatPtr[rowStart + x]
+                // Normalize to 0-1 range, clamp
+                let normalized = max(0.0, min(1.0, (depth - minD) / (maxD - minD)))
+
+                // Heatmap: close=red, mid=yellow, far=blue
+                let r: UInt8
+                let g: UInt8
+                let b: UInt8
+                if normalized < 0.25 {
+                    let t = normalized / 0.25
+                    r = 255; g = UInt8(t * 255); b = 0
+                } else if normalized < 0.5 {
+                    let t = (normalized - 0.25) / 0.25
+                    r = UInt8((1 - t) * 255); g = 255; b = 0
+                } else if normalized < 0.75 {
+                    let t = (normalized - 0.5) / 0.25
+                    r = 0; g = 255; b = UInt8(t * 255)
+                } else {
+                    let t = (normalized - 0.75) / 0.25
+                    r = 0; g = UInt8((1 - t) * 255); b = 255
+                }
+
+                let idx = (y * width + x) * bytesPerPixel
+                pixelData[idx] = r
+                pixelData[idx + 1] = g
+                pixelData[idx + 2] = b
+                pixelData[idx + 3] = depth.isNaN || depth <= 0 ? 0 : 180
+            }
+        }
+
+        let colorSpace = CGColorSpaceCreateDeviceRGB()
+        guard let context = CGContext(
+            data: &pixelData,
+            width: width,
+            height: height,
+            bitsPerComponent: 8,
+            bytesPerRow: width * bytesPerPixel,
+            space: colorSpace,
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        ), let cgImage = context.makeImage() else { return }
+
+        let image = UIImage(cgImage: cgImage)
+        DispatchQueue.main.async { [weak self] in
+            self?.depthImage = image
         }
     }
 
@@ -397,10 +450,13 @@ final class GestureStreamer: NSObject, ObservableObject {
             CVPixelBufferUnlockBaseAddress(depthMap, .readOnly)
         }
 
-        let palm = Palm3D(x: palmX, y: palmY, z: palmZ)
+        // Mirror correction when camera faces the user
+        let correctedPalmX = mirrorMode ? (1.0 - palmX) : palmX
+        let palm = Palm3D(x: correctedPalmX, y: palmY, z: palmZ)
 
-        // Determine hand (left/right) based on chirality (available since iOS 15, deployment target is 17+)
-        let hand = observation.chirality == .left ? "left" : "right"
+        // In mirror mode, chirality is flipped from camera's perspective
+        let rawChirality = observation.chirality == .left ? "left" : "right"
+        let hand = mirrorMode ? (rawChirality == "left" ? "right" : "left") : rawChirality
 
         // Average confidence
         let avgConfidence = Double(
@@ -474,19 +530,6 @@ final class GestureStreamer: NSObject, ObservableObject {
             }
         }
 
-        // 5. Swipe detection via palm velocity
-        let now = CACurrentMediaTime()
-        let swipeGesture = detectSwipe(palmX: palmX, palmY: palmY, time: now)
-        if let swipe = swipeGesture {
-            return GestureResult(
-                gesture: swipe,
-                hand: hand,
-                confidence: avgConfidence,
-                palm: palm,
-                fingersExtended: fingersExtendedCount
-            )
-        }
-
         // No recognized gesture
         return GestureResult(
             gesture: .none,
@@ -497,42 +540,6 @@ final class GestureStreamer: NSObject, ObservableObject {
         )
     }
 
-    // MARK: - Swipe Detection
-
-    private func detectSwipe(palmX: Double, palmY: Double, time: TimeInterval) -> GestureType? {
-        previousPalmPositions.append((time: time, x: palmX, y: palmY))
-
-        // Keep only recent history
-        previousPalmPositions = previousPalmPositions.filter { time - $0.time < swipeHistoryWindow }
-
-        guard previousPalmPositions.count >= 3 else { return nil }
-
-        guard let oldest = previousPalmPositions.first,
-              let newest = previousPalmPositions.last else { return nil }
-
-        let dt = newest.time - oldest.time
-        guard dt > 0.05 else { return nil }
-
-        let vx = (newest.x - oldest.x) / dt
-        let vy = (newest.y - oldest.y) / dt
-
-        if abs(vx) > swipeVelocityThreshold || abs(vy) > swipeVelocityThreshold {
-            // Send velocity event
-            let timestamp = Date().timeIntervalSince1970
-            sendVelocityEvent(hand: "right", vx: vx, vy: vy, timestamp: timestamp)
-
-            // Clear history after detecting swipe to avoid repeated triggers
-            previousPalmPositions.removeAll()
-
-            if abs(vx) > abs(vy) {
-                return vx > 0 ? .swipeRight : .swipeLeft
-            } else {
-                return vy > 0 ? .swipeUp : .swipeDown
-            }
-        }
-
-        return nil
-    }
 }
 
 // MARK: - ARSessionDelegate
@@ -547,6 +554,10 @@ extension GestureStreamer: ARSessionDelegate {
         let pixelBuffer = frame.capturedImage
         let depthMap = frame.sceneDepth?.depthMap
         let timestamp = frame.timestamp + bootTimeOffset
+
+        if showDepth, let dm = depthMap {
+            renderDepthImage(from: dm)
+        }
 
         visionQueue.async { [weak self] in
             guard let self = self else { return }

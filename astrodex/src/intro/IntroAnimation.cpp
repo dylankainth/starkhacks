@@ -10,16 +10,17 @@ namespace astrocore {
 
 // ── Font ─────────────────────────────────────────────────────────────────────
 // 5-wide × 7-tall bitmap, bit 4 = left, bit 0 = right.
-// Letter order: A  S  T  R  O  D  E  X
-static const uint8_t kFont[8][7] = {
-    {0b01110, 0b10001, 0b10001, 0b11111, 0b10001, 0b10001, 0b10001}, // A
+// Letter order: P  O  N  Y  S  T  A  R  K
+static const uint8_t kFont[9][7] = {
+    {0b11110, 0b10001, 0b10001, 0b11110, 0b10000, 0b10000, 0b10000}, // P
+    {0b01110, 0b10001, 0b10001, 0b10001, 0b10001, 0b10001, 0b01110}, // O
+    {0b10001, 0b11001, 0b10101, 0b10011, 0b10001, 0b10001, 0b10001}, // N
+    {0b10001, 0b10001, 0b01010, 0b00100, 0b00100, 0b00100, 0b00100}, // Y
     {0b01111, 0b10000, 0b10000, 0b01110, 0b00001, 0b00001, 0b11110}, // S
     {0b11111, 0b00100, 0b00100, 0b00100, 0b00100, 0b00100, 0b00100}, // T
+    {0b01110, 0b10001, 0b10001, 0b11111, 0b10001, 0b10001, 0b10001}, // A
     {0b11110, 0b10001, 0b10001, 0b11110, 0b10100, 0b10010, 0b10001}, // R
-    {0b01110, 0b10001, 0b10001, 0b10001, 0b10001, 0b10001, 0b01110}, // O
-    {0b11110, 0b10001, 0b10001, 0b10001, 0b10001, 0b10001, 0b11110}, // D
-    {0b11111, 0b10000, 0b10000, 0b11110, 0b10000, 0b10000, 0b11111}, // E
-    {0b10001, 0b10001, 0b01010, 0b00100, 0b01010, 0b10001, 0b10001}, // X
+    {0b10001, 0b10010, 0b10100, 0b11000, 0b10100, 0b10010, 0b10001}, // K
 };
 
 // ── rng helpers (seeded in initParticles) ────────────────────────────────────
@@ -38,7 +39,7 @@ void IntroAnimation::initParticles(float W, float H) {
     const float lGap     = 16.f;   // extra gap between letters
     const float lW       = 5.f * gridStep;
     const float lH       = 7.f * gridStep;
-    const float totalW   = 8.f * lW + 7.f * lGap;
+    const float totalW   = 9.f * lW + 8.f * lGap;
 
     const float sx = W * 0.5f - totalW * 0.5f;
     const float sy = H * 0.42f - lH * 0.5f;
@@ -49,7 +50,7 @@ void IntroAnimation::initParticles(float W, float H) {
     m_titleH  = lH;
 
     // ── Letter particles ──────────────────────────────────────────────────────
-    for (int li = 0; li < 8; ++li) {
+    for (int li = 0; li < 9; ++li) {
         float lx = sx + li * (lW + lGap);
         for (int row = 0; row < 7; ++row)
             for (int bit = 0; bit < 5; ++bit) {
@@ -260,7 +261,7 @@ void IntroAnimation::assignBorderTargets() {
 }
 
 // ── drawTitleGlow ─────────────────────────────────────────────────────────────
-// Layered ambient halo centred on the whole ASTRODEX title block.
+// Layered ambient halo centred on the whole PONYSTARK title block.
 
 void IntroAnimation::drawTitleGlow(ImDrawList* dl) {
     // Only shown while the title is on screen; hide during and after explosion

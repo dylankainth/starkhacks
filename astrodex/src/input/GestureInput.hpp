@@ -7,6 +7,10 @@
 
 namespace astrocore {
 
+struct FingerTip {
+    float x = 0.0f, y = 0.0f;
+};
+
 struct GestureState {
     std::string gesture = "none";
     std::string hand = "right";
@@ -17,6 +21,8 @@ struct GestureState {
     bool connected = false;
     double lastHeartbeat = 0.0;
     double lastGestureTime = 0.0;
+    bool hasTips = false;
+    FingerTip thumb, index, middle, ring, little, wrist;
 };
 
 class GestureInput {
@@ -32,6 +38,7 @@ public:
 
     GestureState getState() const;  // Thread-safe
     bool isConnected() const;
+    int getPort() const { return m_port; }
 
 private:
     void listenerLoop();

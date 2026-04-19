@@ -31,6 +31,8 @@ public:
     bool isTransitioning() const { return m_transitioning; }
     float getDistance() const { return m_distance; }
 
+    void setDistanceLimits(float minDist, float maxDist) { m_minDistance = minDist; m_maxDistance = maxDist; }
+
     // Update camera state
     void update(float deltaTime);
 
@@ -48,6 +50,7 @@ public:
     float getYaw() const { return m_yaw; }
     float getPitch() const { return m_pitch; }
     void setYaw(float yaw) { m_yaw = yaw; updateCameraVectors(); m_viewDirty = true; }
+    void setProjectionFlip(float sx, float sy) { m_projFlipX = sx; m_projFlipY = sy; m_projectionDirty = true; }
 
     // Projection parameters
     float getFov() const { return m_fov; }
@@ -68,7 +71,7 @@ private:
     float m_distance = 8.0f;
     float m_yaw = 0.0f;       // Horizontal angle
     float m_pitch = 0.0f;     // Vertical angle
-    float m_minDistance = 1.0f;
+    float m_minDistance = 0.1f;
     float m_maxDistance = 1000.0f;  // Increased for sandbox scale
     float m_minPitch = -89.0f * 0.0174533f;  // -89 degrees in radians
     float m_maxPitch = 89.0f * 0.0174533f;   // 89 degrees in radians
@@ -92,6 +95,8 @@ private:
     float m_aspectRatio = 16.0f / 9.0f;
     float m_nearPlane = 0.01f;
     float m_farPlane = 100000.0f;  // Need large range for solar system scale
+    float m_projFlipX = 1.0f;
+    float m_projFlipY = 1.0f;
 
     // Cached matrices
     mutable glm::mat4 m_viewMatrix{1.0f};

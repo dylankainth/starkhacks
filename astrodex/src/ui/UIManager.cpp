@@ -781,6 +781,45 @@ void UIManager::render(PlanetParams& p, ImVec2* outPos, ImVec2* outSize) {
             else
                 row("ESI", "--", false);
 
+            // Count missing fields — show Contribute button when data is sparse
+            if (m_hasExoData) {
+                int missing = 0;
+                if (!d.mass_earth.hasValue()) missing++;
+                if (!d.radius_earth.hasValue()) missing++;
+                if (!d.density_gcc.hasValue()) missing++;
+                if (!d.equilibrium_temp_k.hasValue()) missing++;
+                if (!d.orbital_period_days.hasValue()) missing++;
+                if (!d.semi_major_axis_au.hasValue()) missing++;
+                if (!d.eccentricity.hasValue()) missing++;
+                if (!d.insolation_flux.hasValue()) missing++;
+                if (!d.atmosphere_composition.hasValue()) missing++;
+                if (!d.albedo.hasValue()) missing++;
+
+                if (missing > 0) {
+                    ImGui::Spacing();
+                    ImGui::Separator();
+                    ImGui::Spacing();
+                    ImGui::TextColored(ImVec4(1.0f, 0.7f, 0.3f, 1.0f),
+                        "%d fields missing observed data", missing);
+                    ImGui::TextDisabled("Help improve this planet's data");
+                    ImGui::Spacing();
+                    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.55f, 0.25f, 0.85f, 1.0f));
+                    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.65f, 0.35f, 0.95f, 1.0f));
+                    ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.45f, 0.15f, 0.75f, 1.0f));
+                    if (ImGui::Button("Contribute Data (Solana)", ImVec2(-1, 30))) {
+                        std::string url = "https://astrodex.keanuc.net/contribute?planet=" + d.name;
+                        #ifdef __APPLE__
+                        std::string cmd = "open \"" + url + "\"";
+                        #else
+                        std::string cmd = "xdg-open \"" + url + "\"";
+                        #endif
+                        system(cmd.c_str());
+                    }
+                    ImGui::PopStyleColor(3);
+                    ImGui::TextDisabled("Earn SOL for verified observations");
+                }
+            }
+
             ImGui::EndTabItem();
         }
 

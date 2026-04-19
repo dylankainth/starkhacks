@@ -2,6 +2,7 @@
 #include "ai/BedrockClient.hpp"
 #include "ai/JimmyClient.hpp"
 #include "ai/GroqClient.hpp"
+#include "ai/GeminiClient.hpp"
 #include "ai/PromptTemplates.hpp"
 #include "render/Renderer.hpp"
 #include "core/Logger.hpp"
@@ -69,7 +70,7 @@ InferenceEngine::InferenceEngine() {
         GroqConfig groqConfig;
         groqConfig.api_key = groqKey;
         groqConfig.model = GroqModel::KIMI_K2;
-        groqConfig.temperature = 0.0;  // Fully deterministic output
+        groqConfig.temperature = 0.0;
         m_groq = std::make_unique<GroqClient>(groqConfig);
         m_groqAvailable = true;
         LOG_INFO("Groq configured for fast inference (Kimi K2, temp=0)");
@@ -78,8 +79,26 @@ InferenceEngine::InferenceEngine() {
         LOG_WARN("GROQ_API_KEY not set - Groq inference disabled");
     }
 
-    // Select best available backend - prefer Groq (fastest with good quality)
-    if (m_groqAvailable) {
+    // Initialize Google Gemini (preferred backend for "Best Use of Gemini" track)
+    const char* geminiKey = std::getenv("GEMINI_API_KEY");
+    if (geminiKey && geminiKey[0] != '\0') {
+        GeminiConfig geminiConfig;
+        geminiConfig.api_key = geminiKey;
+        geminiConfig.model = "gemini-3-flash-preview";
+        geminiConfig.temperature = 0.0;
+        m_gemini = std::make_unique<GeminiClient>(geminiConfig);
+        m_geminiAvailable = true;
+        LOG_INFO("Gemini configured for inference (3 Flash Preview, temp=0)");
+    } else {
+        m_geminiAvailable = false;
+        LOG_WARN("GEMINI_API_KEY not set - Gemini inference disabled");
+    }
+
+    // Select best available backend - prefer Gemini (hackathon track), then Groq
+    if (m_geminiAvailable) {
+        m_currentBackend = InferenceBackend::GOOGLE_GEMINI;
+        LOG_INFO("Default inference backend: Google Gemini 3 Flash Preview - PREFERRED");
+    } else if (m_groqAvailable) {
         m_currentBackend = InferenceBackend::GROQ_KIMI_K2;
         LOG_INFO("Default inference backend: Groq (Kimi K2) - VERY FAST");
     } else if (m_jimmyAvailable) {
@@ -102,6 +121,7 @@ bool InferenceEngine::isAvailable() const {
 
 std::string InferenceEngine::backendToString(InferenceBackend backend) {
     switch (backend) {
+        case InferenceBackend::GOOGLE_GEMINI: return "Google: Gemini 3 Flash Preview (Preferred)";
         case InferenceBackend::AWS_BEDROCK: return "Bedrock: Claude Sonnet (Best)";
         case InferenceBackend::AWS_BEDROCK_HAIKU: return "Bedrock: Claude Haiku (Fast)";
         case InferenceBackend::GROQ_KIMI_K2: return "Groq: Kimi K2 (Very Fast)";
@@ -156,7 +176,10 @@ void InferenceEngine::setBackend(InferenceBackend backend) {
 std::vector<InferenceBackend> InferenceEngine::getAvailableBackends() const {
     std::vector<InferenceBackend> backends;
 
-    // Groq first (fastest with good quality)
+    // Gemini first (preferred for hackathon track)
+    if (m_geminiAvailable) {
+        backends.push_back(InferenceBackend::GOOGLE_GEMINI);
+    }
     if (m_groqAvailable) {
         backends.push_back(InferenceBackend::GROQ_KIMI_K2);
     }
@@ -166,8 +189,8 @@ std::vector<InferenceBackend> InferenceEngine::getAvailableBackends() const {
         backends.push_back(InferenceBackend::JIMMY_LLAMA_8B);
     }
     if (m_bedrockAvailable) {
-        backends.push_back(InferenceBackend::AWS_BEDROCK_HAIKU);  // Haiku first (faster)
-        backends.push_back(InferenceBackend::AWS_BEDROCK);        // Sonnet (best quality)
+        backends.push_back(InferenceBackend::AWS_BEDROCK_HAIKU);
+        backends.push_back(InferenceBackend::AWS_BEDROCK);
     }
 
     return backends;
@@ -176,6 +199,12 @@ std::vector<InferenceBackend> InferenceEngine::getAvailableBackends() const {
 std::optional<std::string> InferenceEngine::queryBackend(const std::string& systemPrompt,
                                                           const std::string& userPrompt) {
     switch (m_currentBackend) {
+        case InferenceBackend::GOOGLE_GEMINI:
+            if (m_gemini) {
+                return m_gemini->query(systemPrompt, userPrompt);
+            }
+            break;
+
         case InferenceBackend::GROQ_KIMI_K2:
             if (m_groq) {
                 return m_groq->query(systemPrompt, userPrompt);

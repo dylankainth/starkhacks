@@ -57,7 +57,12 @@ glm::mat4 FreeFlyCamera::getViewMatrix() const {
 }
 
 glm::mat4 FreeFlyCamera::getProjectionMatrix() const {
-    return glm::perspective(glm::radians(m_fov), m_aspect, m_nearPlane, m_farPlane);
+    auto proj = glm::perspective(glm::radians(m_fov), m_aspect, m_nearPlane, m_farPlane);
+    if (m_projFlipX != 1.0f || m_projFlipY != 1.0f) {
+        proj[0][0] *= m_projFlipX;
+        proj[1][1] *= m_projFlipY;
+    }
+    return proj;
 }
 
 void FreeFlyCamera::updateVectors() {

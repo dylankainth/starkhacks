@@ -135,6 +135,25 @@ void GestureInput::parsePacket(const char* data, int len) {
                 m_state.palmZ = j["palm"].value("z", 1.0f);
             }
 
+            if (j.contains("tips") && j["tips"].is_object()) {
+                auto& t = j["tips"];
+                auto parseTip = [&](const std::string& name) -> FingerTip {
+                    if (t.contains(name) && t[name].is_array() && t[name].size() >= 2) {
+                        return {t[name][0].get<float>(), t[name][1].get<float>()};
+                    }
+                    return {};
+                };
+                m_state.thumb  = parseTip("thumb");
+                m_state.index  = parseTip("index");
+                m_state.middle = parseTip("middle");
+                m_state.ring   = parseTip("ring");
+                m_state.little = parseTip("little");
+                m_state.wrist  = parseTip("wrist");
+                m_state.hasTips = true;
+            } else {
+                m_state.hasTips = false;
+            }
+
             m_state.connected = true;
 
         } else if (packetType == "velocity") {

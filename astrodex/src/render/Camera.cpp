@@ -146,6 +146,10 @@ glm::mat4 Camera::getViewMatrix() const {
 glm::mat4 Camera::getProjectionMatrix() const {
     if (m_projectionDirty) {
         m_projectionMatrix = glm::perspective(m_fov, m_aspectRatio, m_nearPlane, m_farPlane);
+        if (m_projFlipX != 1.0f || m_projFlipY != 1.0f) {
+            m_projectionMatrix[0][0] *= m_projFlipX;
+            m_projectionMatrix[1][1] *= m_projFlipY;
+        }
         m_projectionDirty = false;
     }
     return m_projectionMatrix;

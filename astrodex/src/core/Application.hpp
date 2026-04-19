@@ -102,8 +102,20 @@ private:
     // Gesture input (UDP from iPhone)
     std::unique_ptr<GestureInput> m_gestureInput;
 
-    // Quad-view Pepper's Ghost
+    // Quad-view Pepper's Ghost (configurable via HOLO_SCALE, HOLO_GAP env vars)
     bool m_quadViewEnabled = false;
+    float m_holoScale = 5.0f;
+    float m_holoGap = 0.25f;
+    unsigned int m_holoFBO = 0;
+    unsigned int m_holoTex = 0;
+    unsigned int m_holoDepthRBO = 0;
+    int m_holoTexW = 0, m_holoTexH = 0;
+    unsigned int m_holoQuadVAO = 0;
+    unsigned int m_holoQuadVBO = 0;
+    unsigned int m_holoShader = 0;
+    void initHoloFBO(int w, int h);
+    void initHoloShader();
+    void blitHologram();
 
     // Help overlay
     bool m_showHelp = false;

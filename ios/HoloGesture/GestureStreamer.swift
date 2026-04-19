@@ -20,12 +20,22 @@ struct Palm3D {
     var z: Double
 }
 
+struct FingerTips {
+    var thumb: CGPoint
+    var index: CGPoint
+    var middle: CGPoint
+    var ring: CGPoint
+    var little: CGPoint
+    var wrist: CGPoint
+}
+
 struct GestureResult {
     var gesture: GestureType
     var hand: String
     var confidence: Double
     var palm: Palm3D
     var fingersExtended: Int
+    var fingers: FingerTips?
 }
 
 enum StreamerState: Equatable {
@@ -303,7 +313,7 @@ final class GestureStreamer: NSObject, ObservableObject {
     }
 
     private func sendGestureEvent(_ result: GestureResult, timestamp: TimeInterval) {
-        let packet: [String: Any] = [
+        var packet: [String: Any] = [
             "type": "gesture",
             "gesture": result.gesture.rawValue,
             "hand": result.hand,
@@ -316,6 +326,17 @@ final class GestureStreamer: NSObject, ObservableObject {
             "fingers_extended": result.fingersExtended,
             "timestamp": timestamp
         ]
+        if let f = result.fingers {
+            let r3 = { (v: Double) -> Double in round(v * 1000) / 1000 }
+            packet["tips"] = [
+                "thumb":  [r3(f.thumb.x),  r3(f.thumb.y)],
+                "index":  [r3(f.index.x),  r3(f.index.y)],
+                "middle": [r3(f.middle.x), r3(f.middle.y)],
+                "ring":   [r3(f.ring.x),   r3(f.ring.y)],
+                "little": [r3(f.little.x), r3(f.little.y)],
+                "wrist":  [r3(f.wrist.x),  r3(f.wrist.y)]
+            ]
+        }
         sendJSON(packet)
     }
 
@@ -505,6 +526,19 @@ final class GestureStreamer: NSObject, ObservableObject {
         let correctedPalmX = mirrorMode ? (1.0 - palmX) : palmX
         let palm = Palm3D(x: correctedPalmX, y: palmY, z: palmZ)
 
+        // Build finger tips (mirror-corrected)
+        func mirrorX(_ p: CGPoint) -> CGPoint {
+            mirrorMode ? CGPoint(x: 1.0 - p.x, y: p.y) : p
+        }
+        let tips = FingerTips(
+            thumb:  mirrorX(thumbTip.location),
+            index:  mirrorX(indexTip.location),
+            middle: mirrorX(middleTip.location),
+            ring:   mirrorX(ringTip.location),
+            little: mirrorX(littleTip.location),
+            wrist:  mirrorX(wrist.location)
+        )
+
         // In mirror mode, chirality is flipped from camera's perspective
         let rawChirality = observation.chirality == .left ? "left" : "right"
         let hand = mirrorMode ? (rawChirality == "left" ? "right" : "left") : rawChirality
@@ -530,7 +564,8 @@ final class GestureStreamer: NSObject, ObservableObject {
                 hand: hand,
                 confidence: avgConfidence,
                 palm: palm,
-                fingersExtended: 0
+                fingersExtended: 0,
+                fingers: tips
             )
         }
 
@@ -542,7 +577,8 @@ final class GestureStreamer: NSObject, ObservableObject {
                 hand: hand,
                 confidence: avgConfidence,
                 palm: palm,
-                fingersExtended: fingersExtendedCount
+                fingersExtended: fingersExtendedCount,
+                fingers: tips
             )
         }
 
@@ -553,18 +589,19 @@ final class GestureStreamer: NSObject, ObservableObject {
                 hand: hand,
                 confidence: avgConfidence,
                 palm: palm,
-                fingersExtended: fingersExtendedCount
+                fingersExtended: fingersExtendedCount,
+                fingers: tips
             )
         }
 
         // 4. Open palm: 3+ fingers extended AND average spread > 0.08
         if fingersExtendedCount >= 3 {
-            let tips = [indexTip.location, middleTip.location, ringTip.location, littleTip.location]
+            let spreadTips = [indexTip.location, middleTip.location, ringTip.location, littleTip.location]
             var totalSpread: Double = 0
             var pairCount = 0
-            for i in 0..<tips.count {
-                for j in (i + 1)..<tips.count {
-                    totalSpread += dist(tips[i], tips[j])
+            for i in 0..<spreadTips.count {
+                for j in (i + 1)..<spreadTips.count {
+                    totalSpread += dist(spreadTips[i], spreadTips[j])
                     pairCount += 1
                 }
             }
@@ -576,7 +613,8 @@ final class GestureStreamer: NSObject, ObservableObject {
                     hand: hand,
                     confidence: avgConfidence,
                     palm: palm,
-                    fingersExtended: fingersExtendedCount
+                    fingersExtended: fingersExtendedCount,
+                    fingers: tips
                 )
             }
         }
@@ -587,7 +625,8 @@ final class GestureStreamer: NSObject, ObservableObject {
             hand: hand,
             confidence: avgConfidence,
             palm: palm,
-            fingersExtended: fingersExtendedCount
+            fingersExtended: fingersExtendedCount,
+            fingers: tips
         )
     }
 
@@ -632,7 +671,8 @@ extension GestureStreamer: ARSessionDelegate {
                     hand: "right",
                     confidence: 0.0,
                     palm: Palm3D(x: 0, y: 0, z: 0),
-                    fingersExtended: 0
+                    fingersExtended: 0,
+                    fingers: nil
                 )
                 self.sendGestureEvent(noneResult, timestamp: timestamp)
                 DispatchQueue.main.async { [weak self] in

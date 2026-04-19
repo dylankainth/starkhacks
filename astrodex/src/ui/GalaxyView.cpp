@@ -465,8 +465,8 @@ void GalaxyView::update(float dt, float W, float H) {
 
     if (m_exploding || m_transitioning) return;
 
-    // Arrow keys cycle planets
-    if (!ImGui::GetIO().WantCaptureKeyboard && !m_filteredIndices.empty()) {
+    // Arrow keys cycle planets (only when no ImGui widget has focus)
+    if (!ImGui::GetIO().WantCaptureKeyboard && !ImGui::IsAnyItemActive() && !m_filteredIndices.empty()) {
         int delta = 0;
         if (ImGui::IsKeyPressed(ImGuiKey_DownArrow, true)) delta = 1;
         if (ImGui::IsKeyPressed(ImGuiKey_UpArrow, true)) delta = -1;
@@ -575,7 +575,7 @@ bool GalaxyView::renderUI(float W, float H) {
 
     if (ImGui::Begin("##galaxy_sidebar", nullptr, sidebarFlags)) {
         ImGui::Spacing();
-        ImGui::TextDisabled("ASTRODEX  //  EXOPLANET BROWSER");
+        ImGui::TextDisabled("PONY STARK  //  EXOPLANET BROWSER");
         ImGui::Spacing();
         ImGui::Separator();
         ImGui::Spacing();
@@ -1360,7 +1360,7 @@ void GalaxyView::handleCameraInput(float dt) {
     if (m_transitionState != TransitionState::None) return;
 
     ImGuiIO& io = ImGui::GetIO();
-    if (io.WantCaptureKeyboard) return;
+    if (io.WantCaptureKeyboard || ImGui::IsAnyItemActive()) return;
 
     // WASD + Space/Shift movement via FreeFlyCamera
     bool forward = ImGui::IsKeyDown(ImGuiKey_W);
@@ -1371,7 +1371,7 @@ void GalaxyView::handleCameraInput(float dt) {
     bool down    = ImGui::IsKeyDown(ImGuiKey_LeftShift) || ImGui::IsKeyDown(ImGuiKey_RightShift);
     m_freeCamera->processKeyboard(forward, back, left, right, up, down, dt);
 
-    // Arrow keys for look
+    // Arrow keys for look (skip if an ImGui item like a listbox has focus)
     bool lookLeft  = ImGui::IsKeyDown(ImGuiKey_LeftArrow);
     bool lookRight = ImGui::IsKeyDown(ImGuiKey_RightArrow);
     bool lookUp    = ImGui::IsKeyDown(ImGuiKey_UpArrow);
@@ -1466,12 +1466,36 @@ void GalaxyView::renderStarField(float W, float H) {
     m_starRenderer->render(*m_freeCamera, m_time, m_pointScale, m_brightnessBoost, m_debugStars, m_warpFactor);
 }
 
+void GalaxyView::prepareStarFieldFrame(float W, float H) {
+    if (!m_starRenderer || !m_freeCamera || !m_initialized) return;
+
+    ImGuiIO& io = ImGui::GetIO();
+    int fbW = static_cast<int>(W * io.DisplayFramebufferScale.x);
+    int fbH = static_cast<int>(H * io.DisplayFramebufferScale.y);
+    m_freeCamera->setAspectRatio(W / std::max(H, 1.0f));
+    m_starRenderer->resize(fbW, fbH);
+    updateStarLOD();
+
+    m_nearestTimer += io.DeltaTime;
+    if (m_nearestTimer >= 0.5f) {
+        m_nearestTimer = 0.0f;
+        if (m_useLOD && m_starLOD) {
+            m_cachedNearest = m_starLOD->findNearest(m_freeCamera->getPosition());
+        } else if (m_starData) {
+            m_cachedNearest = m_starData->findNearest(m_freeCamera->getPosition());
+        }
+    }
+}
+
+void GalaxyView::setProjectionFlip(float sx, float sy) {
+    if (m_freeCamera) m_freeCamera->setProjectionFlip(sx, sy);
+}
+
 void GalaxyView::renderStarFieldQuadFace(float W, float H, float yawOffset) {
     if (!m_starRenderer || !m_freeCamera || !m_initialized) return;
 
     float origYaw = m_freeCamera->getYaw();
     float origPitch = m_freeCamera->getPitch();
-    float origAspect = W / std::max(H, 1.0f);
 
     m_freeCamera->setAspectRatio(1.0f);
     m_freeCamera->setYawPitch(origYaw + yawOffset * (180.0f / 3.14159265f), origPitch);
@@ -1480,7 +1504,7 @@ void GalaxyView::renderStarFieldQuadFace(float W, float H, float yawOffset) {
     m_starRenderer->render(*m_freeCamera, m_time, m_pointScale, m_brightnessBoost, m_debugStars, m_warpFactor);
 
     m_freeCamera->setYawPitch(origYaw, origPitch);
-    m_freeCamera->setAspectRatio(origAspect);
+    m_freeCamera->setAspectRatio(W / std::max(H, 1.0f));
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════

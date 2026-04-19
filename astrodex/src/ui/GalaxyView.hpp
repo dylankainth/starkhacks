@@ -193,7 +193,10 @@ private:
     void updateStarLOD();
 
 public:
+    void prepareStarFieldFrame(float W, float H);
     void renderStarFieldQuadFace(float W, float H, float yawOffset);
+    void setProjectionFlip(float sx, float sy);
+    FreeFlyCamera* getFreeCamera() { return m_freeCamera.get(); }
 private:
 
     std::unique_ptr<StarRenderer>  m_starRenderer;

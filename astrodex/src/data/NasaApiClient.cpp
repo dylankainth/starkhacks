@@ -124,7 +124,7 @@ std::vector<ExoplanetData> NasaApiClient::executeQuery(const std::string& adql) 
                       "?query=" + urlEncode(adql) +
                       "&format=json";
 
-    LOG_DEBUG("NASA API query: {}", url);
+    LOG_INFO("NASA TAP query URL: {}", url.substr(0, 200));
 
     curl_easy_setopt(m_impl->curl, CURLOPT_URL, url.c_str());
     curl_easy_setopt(m_impl->curl, CURLOPT_WRITEFUNCTION, Impl::writeCallback);
@@ -136,26 +136,32 @@ std::vector<ExoplanetData> NasaApiClient::executeQuery(const std::string& adql) 
     CURLcode res = curl_easy_perform(m_impl->curl);
 
     if (res != CURLE_OK) {
-        LOG_ERROR("NASA API request failed: {}", curl_easy_strerror(res));
+        LOG_ERROR("NASA API curl failed: {} (code {})", curl_easy_strerror(res), static_cast<int>(res));
         return {};
     }
 
     long httpCode = 0;
     curl_easy_getinfo(m_impl->curl, CURLINFO_RESPONSE_CODE, &httpCode);
 
+    double totalTime = 0;
+    curl_easy_getinfo(m_impl->curl, CURLINFO_TOTAL_TIME, &totalTime);
+    LOG_INFO("NASA API HTTP {} — {} bytes in {:.1f}s", httpCode, m_impl->responseBuffer.size(), totalTime);
+
     if (httpCode != 200) {
-        LOG_ERROR("NASA API returned HTTP {}", httpCode);
+        LOG_ERROR("NASA API HTTP {} — response: {}", httpCode,
+                  m_impl->responseBuffer.substr(0, 300));
         return {};
     }
 
     // Parse JSON response
     try {
-        LOG_DEBUG("NASA API response size: {} bytes", m_impl->responseBuffer.size());
-
-        // Check for error responses
-        if (m_impl->responseBuffer.find("ERROR") != std::string::npos ||
-            m_impl->responseBuffer.find("error") != std::string::npos) {
-            LOG_ERROR("NASA API error: {}", m_impl->responseBuffer.substr(0, 500));
+        // Check for error responses — but "error" can appear in valid field names,
+        // so only flag if the response starts with an error structure
+        if (m_impl->responseBuffer.size() < 10 ||
+            (m_impl->responseBuffer[0] == '{' &&
+             m_impl->responseBuffer.find("\"error\"") != std::string::npos &&
+             m_impl->responseBuffer.find("\"error\"") < 50)) {
+            LOG_ERROR("NASA API error response: {}", m_impl->responseBuffer.substr(0, 500));
             return {};
         }
 
@@ -172,8 +178,8 @@ std::vector<ExoplanetData> NasaApiClient::executeQuery(const std::string& adql) 
         } else if (json.contains("results")) {
             dataArray = json["results"];
         } else {
-            // Log the structure for debugging
-            LOG_DEBUG("JSON structure: {}", json.dump().substr(0, 300));
+            LOG_WARN("NASA API: unexpected JSON structure (not array/data/results): {}",
+                     json.dump().substr(0, 300));
             dataArray = json;
         }
 

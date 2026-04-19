@@ -59,6 +59,7 @@ set(ASTROCORE_SOURCES
     src/ai/BedrockClient.cpp
     src/ai/JimmyClient.cpp
     src/ai/GroqClient.cpp
+    src/ai/GeminiClient.cpp
     # Gesture input (UDP from iPhone)
     src/input/GestureInput.cpp
 )

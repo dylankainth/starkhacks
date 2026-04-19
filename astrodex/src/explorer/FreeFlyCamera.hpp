@@ -26,6 +26,7 @@ public:
     void setPosition(const glm::vec3& pos) { m_position = pos; }
     void setSpeed(float speed) { m_speed = speed; }
     void setYawPitch(float yaw, float pitch) { m_yaw = yaw; m_pitch = pitch; updateVectors(); }
+    void setProjectionFlip(float sx, float sy) { m_projFlipX = sx; m_projFlipY = sy; }
 
     // Getters
     glm::vec3 getPosition() const { return m_position; }
@@ -54,6 +55,8 @@ private:
     float m_aspect   = 16.0f / 9.0f;
     float m_nearPlane = 0.001f;     // parsecs
     float m_farPlane  = 200000.0f;  // parsecs
+    float m_projFlipX = 1.0f;
+    float m_projFlipY = 1.0f;
 };
 
 } // namespace astrocore

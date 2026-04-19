@@ -7,11 +7,13 @@
 #include <algorithm>
 #include <chrono>
 #include <cmath>
+#include <cstdlib>
 #include <thread>
 
 #include "config/SystemConfig.hpp"
 #include "core/Logger.hpp"
 #include "data/ExoplanetPredictor.hpp"
+#include "explorer/FreeFlyCamera.hpp"
 #include "intro/IntroAnimation.hpp"
 #include "render/Camera.hpp"
 #include "render/ExoplanetConverter.hpp"
@@ -19,28 +21,147 @@
 
 namespace astrocore {
 
+static ExoplanetData makeSolarSystemData(const std::string& name) {
+    ExoplanetData d;
+    d.name = name;
+    d.host_star.name = "Sun";
+    d.host_star.spectral_type = "G2V";
+    d.host_star.effective_temp_k = MeasuredValue<double>(5778.0, DataSource::CALCULATED);
+    d.host_star.mass_solar = MeasuredValue<double>(1.0, DataSource::CALCULATED);
+    d.host_star.radius_solar = MeasuredValue<double>(1.0, DataSource::CALCULATED);
+    d.host_star.luminosity_solar = MeasuredValue<double>(1.0, DataSource::CALCULATED);
+    d.host_star.age_gyr = MeasuredValue<double>(4.6, DataSource::CALCULATED);
+    d.host_star.distance_pc = MeasuredValue<double>(0.0, DataSource::CALCULATED);
+    d.distance_ly = MeasuredValue<double>(0.0, DataSource::CALCULATED);
+
+    if (name == "Mercury") {
+        d.mass_earth = MeasuredValue<double>(0.055, DataSource::CALCULATED);
+        d.radius_earth = MeasuredValue<double>(0.383, DataSource::CALCULATED);
+        d.density_gcc = MeasuredValue<double>(5.43, DataSource::CALCULATED);
+        d.equilibrium_temp_k = MeasuredValue<double>(440.0, DataSource::CALCULATED);
+        d.orbital_period_days = MeasuredValue<double>(87.97, DataSource::CALCULATED);
+        d.semi_major_axis_au = MeasuredValue<double>(0.387, DataSource::CALCULATED);
+        d.eccentricity = MeasuredValue<double>(0.206, DataSource::CALCULATED);
+        d.surface_gravity_g = MeasuredValue<double>(0.38, DataSource::CALCULATED);
+        d.planet_type = MeasuredValue<std::string>("Rocky", DataSource::CALCULATED);
+        d.albedo = MeasuredValue<double>(0.068, DataSource::CALCULATED);
+    } else if (name == "Venus") {
+        d.mass_earth = MeasuredValue<double>(0.815, DataSource::CALCULATED);
+        d.radius_earth = MeasuredValue<double>(0.949, DataSource::CALCULATED);
+        d.density_gcc = MeasuredValue<double>(5.24, DataSource::CALCULATED);
+        d.equilibrium_temp_k = MeasuredValue<double>(737.0, DataSource::CALCULATED);
+        d.orbital_period_days = MeasuredValue<double>(224.7, DataSource::CALCULATED);
+        d.semi_major_axis_au = MeasuredValue<double>(0.723, DataSource::CALCULATED);
+        d.eccentricity = MeasuredValue<double>(0.007, DataSource::CALCULATED);
+        d.surface_gravity_g = MeasuredValue<double>(0.90, DataSource::CALCULATED);
+        d.surface_pressure_atm = MeasuredValue<double>(92.0, DataSource::CALCULATED);
+        d.planet_type = MeasuredValue<std::string>("Volcanic", DataSource::CALCULATED);
+        d.atmosphere_composition = MeasuredValue<std::string>("CO2 96.5%, N2 3.5%", DataSource::CALCULATED);
+        d.albedo = MeasuredValue<double>(0.77, DataSource::CALCULATED);
+    } else if (name == "Earth") {
+        d.mass_earth = MeasuredValue<double>(1.0, DataSource::CALCULATED);
+        d.radius_earth = MeasuredValue<double>(1.0, DataSource::CALCULATED);
+        d.density_gcc = MeasuredValue<double>(5.51, DataSource::CALCULATED);
+        d.equilibrium_temp_k = MeasuredValue<double>(288.0, DataSource::CALCULATED);
+        d.orbital_period_days = MeasuredValue<double>(365.25, DataSource::CALCULATED);
+        d.semi_major_axis_au = MeasuredValue<double>(1.0, DataSource::CALCULATED);
+        d.eccentricity = MeasuredValue<double>(0.017, DataSource::CALCULATED);
+        d.surface_gravity_g = MeasuredValue<double>(1.0, DataSource::CALCULATED);
+        d.surface_pressure_atm = MeasuredValue<double>(1.0, DataSource::CALCULATED);
+        d.insolation_flux = MeasuredValue<double>(1.0, DataSource::CALCULATED);
+        d.ocean_coverage_fraction = MeasuredValue<double>(0.71, DataSource::CALCULATED);
+        d.earth_similarity_index = MeasuredValue<double>(1.0, DataSource::CALCULATED);
+        d.planet_type = MeasuredValue<std::string>("Terrestrial", DataSource::CALCULATED);
+        d.atmosphere_composition = MeasuredValue<std::string>("N2 78%, O2 21%, Ar 0.9%", DataSource::CALCULATED);
+        d.albedo = MeasuredValue<double>(0.306, DataSource::CALCULATED);
+    } else if (name == "Mars") {
+        d.mass_earth = MeasuredValue<double>(0.107, DataSource::CALCULATED);
+        d.radius_earth = MeasuredValue<double>(0.532, DataSource::CALCULATED);
+        d.density_gcc = MeasuredValue<double>(3.93, DataSource::CALCULATED);
+        d.equilibrium_temp_k = MeasuredValue<double>(210.0, DataSource::CALCULATED);
+        d.orbital_period_days = MeasuredValue<double>(687.0, DataSource::CALCULATED);
+        d.semi_major_axis_au = MeasuredValue<double>(1.524, DataSource::CALCULATED);
+        d.eccentricity = MeasuredValue<double>(0.093, DataSource::CALCULATED);
+        d.surface_gravity_g = MeasuredValue<double>(0.38, DataSource::CALCULATED);
+        d.surface_pressure_atm = MeasuredValue<double>(0.006, DataSource::CALCULATED);
+        d.planet_type = MeasuredValue<std::string>("Desert", DataSource::CALCULATED);
+        d.atmosphere_composition = MeasuredValue<std::string>("CO2 95%, N2 2.7%, Ar 1.6%", DataSource::CALCULATED);
+        d.albedo = MeasuredValue<double>(0.25, DataSource::CALCULATED);
+    } else if (name == "Jupiter") {
+        d.mass_earth = MeasuredValue<double>(317.8, DataSource::CALCULATED);
+        d.radius_earth = MeasuredValue<double>(11.21, DataSource::CALCULATED);
+        d.density_gcc = MeasuredValue<double>(1.33, DataSource::CALCULATED);
+        d.equilibrium_temp_k = MeasuredValue<double>(165.0, DataSource::CALCULATED);
+        d.orbital_period_days = MeasuredValue<double>(4333.0, DataSource::CALCULATED);
+        d.semi_major_axis_au = MeasuredValue<double>(5.203, DataSource::CALCULATED);
+        d.eccentricity = MeasuredValue<double>(0.049, DataSource::CALCULATED);
+        d.surface_gravity_g = MeasuredValue<double>(2.53, DataSource::CALCULATED);
+        d.planet_type = MeasuredValue<std::string>("Gas Giant", DataSource::CALCULATED);
+        d.atmosphere_composition = MeasuredValue<std::string>("H2 89%, He 10%, CH4 0.3%", DataSource::CALCULATED);
+        d.albedo = MeasuredValue<double>(0.503, DataSource::CALCULATED);
+    } else if (name == "Saturn") {
+        d.mass_earth = MeasuredValue<double>(95.2, DataSource::CALCULATED);
+        d.radius_earth = MeasuredValue<double>(9.45, DataSource::CALCULATED);
+        d.density_gcc = MeasuredValue<double>(0.687, DataSource::CALCULATED);
+        d.equilibrium_temp_k = MeasuredValue<double>(134.0, DataSource::CALCULATED);
+        d.orbital_period_days = MeasuredValue<double>(10759.0, DataSource::CALCULATED);
+        d.semi_major_axis_au = MeasuredValue<double>(9.537, DataSource::CALCULATED);
+        d.eccentricity = MeasuredValue<double>(0.054, DataSource::CALCULATED);
+        d.surface_gravity_g = MeasuredValue<double>(1.07, DataSource::CALCULATED);
+        d.planet_type = MeasuredValue<std::string>("Gas Giant", DataSource::CALCULATED);
+        d.atmosphere_composition = MeasuredValue<std::string>("H2 96%, He 3%, CH4 0.4%", DataSource::CALCULATED);
+        d.albedo = MeasuredValue<double>(0.342, DataSource::CALCULATED);
+    } else if (name == "Neptune") {
+        d.mass_earth = MeasuredValue<double>(17.15, DataSource::CALCULATED);
+        d.radius_earth = MeasuredValue<double>(3.88, DataSource::CALCULATED);
+        d.density_gcc = MeasuredValue<double>(1.64, DataSource::CALCULATED);
+        d.equilibrium_temp_k = MeasuredValue<double>(72.0, DataSource::CALCULATED);
+        d.orbital_period_days = MeasuredValue<double>(60190.0, DataSource::CALCULATED);
+        d.semi_major_axis_au = MeasuredValue<double>(30.07, DataSource::CALCULATED);
+        d.eccentricity = MeasuredValue<double>(0.009, DataSource::CALCULATED);
+        d.surface_gravity_g = MeasuredValue<double>(1.14, DataSource::CALCULATED);
+        d.planet_type = MeasuredValue<std::string>("Ice Giant", DataSource::CALCULATED);
+        d.atmosphere_composition = MeasuredValue<std::string>("H2 80%, He 19%, CH4 1.5%", DataSource::CALCULATED);
+        d.albedo = MeasuredValue<double>(0.290, DataSource::CALCULATED);
+    } else if (name == "Uranus") {
+        d.mass_earth = MeasuredValue<double>(14.54, DataSource::CALCULATED);
+        d.radius_earth = MeasuredValue<double>(4.01, DataSource::CALCULATED);
+        d.density_gcc = MeasuredValue<double>(1.27, DataSource::CALCULATED);
+        d.equilibrium_temp_k = MeasuredValue<double>(76.0, DataSource::CALCULATED);
+        d.orbital_period_days = MeasuredValue<double>(30687.0, DataSource::CALCULATED);
+        d.semi_major_axis_au = MeasuredValue<double>(19.19, DataSource::CALCULATED);
+        d.eccentricity = MeasuredValue<double>(0.047, DataSource::CALCULATED);
+        d.surface_gravity_g = MeasuredValue<double>(0.89, DataSource::CALCULATED);
+        d.planet_type = MeasuredValue<std::string>("Ice Giant", DataSource::CALCULATED);
+        d.atmosphere_composition = MeasuredValue<std::string>("H2 83%, He 15%, CH4 2.3%", DataSource::CALCULATED);
+        d.albedo = MeasuredValue<double>(0.300, DataSource::CALCULATED);
+    }
+    return d;
+}
+
 Application::Application() { init(); }
 
 Application::~Application() { shutdown(); }
 
 void Application::init() {
   Logger::init();
-  LOG_INFO("astrodex starting...");
+  LOG_INFO("Pony Stark starting...");
 
   WindowConfig config;
-  config.title = "astrodex - realistic procedural exoplanet generation";
+  config.title = "Pony Stark - holographic exoplanet explorer";
   config.width = 1280;
   config.height = 720;
   config.vsync = true;
   m_window = std::make_unique<Window>(config);
 
   m_camera = std::make_unique<Camera>();
-  m_camera->setTarget(glm::vec3(0.0f, 0.0f, -10.0f));
-  m_camera->setPosition(glm::vec3(0.0f, 0.0f, 6.0f));
+  m_camera->setTarget(glm::vec3(0.0f));
+  m_camera->setPosition(glm::vec3(0.0f, 0.0f, 5.0f));
 
   m_window->setScrollCallback([this](double, double yoffset) {
     if (ImGui::GetCurrentContext() && ImGui::GetIO().WantCaptureMouse) return;
-    m_camera->zoom(static_cast<float>(-yoffset) * 0.3f);
+    float zoomSpeed = m_camera->getDistance() * 0.15f;
+    m_camera->zoom(static_cast<float>(-yoffset) * zoomSpeed);
   });
 
   m_window->setResizeCallback([this](int width, int height) {
@@ -141,9 +262,25 @@ void Application::init() {
   GLFWimage image = {1, 1, pixels};
   m_blankCursor = glfwCreateCursor(&image, 0, 0);
 
-  // Gesture input (UDP from iPhone)
-  m_gestureInput = std::make_unique<GestureInput>(9001);
+  // Gesture input (UDP from iPhone, port configurable via GESTURE_PORT env var)
+  int gesturePort = 9001;
+  if (const char* portEnv = std::getenv("GESTURE_PORT")) {
+    gesturePort = std::atoi(portEnv);
+    if (gesturePort <= 0 || gesturePort > 65535) gesturePort = 9001;
+  }
+  m_gestureInput = std::make_unique<GestureInput>(gesturePort);
   m_gestureInput->start();
+  LOG_INFO("Gesture input on UDP port {}", gesturePort);
+
+  // Hologram quad-view scale (configurable via HOLO_SCALE and HOLO_GAP env vars)
+  if (const char* scaleEnv = std::getenv("HOLO_SCALE")) {
+    m_holoScale = static_cast<float>(std::atof(scaleEnv));
+    if (m_holoScale < 1.0f || m_holoScale > 20.0f) m_holoScale = 5.0f;
+  }
+  if (const char* gapEnv = std::getenv("HOLO_GAP")) {
+    m_holoGap = static_cast<float>(std::atof(gapEnv));
+    if (m_holoGap < 0.0f || m_holoGap > 1.0f) m_holoGap = 0.25f;
+  }
 
   // Pass GPU-specific point size boost to renderers
   m_galaxy->setPointSizeBoost(m_window->getPointSizeBoost());
@@ -253,29 +390,43 @@ void Application::run() {
 
     m_window->pollEvents();
 
+    // Process input first (may toggle m_quadViewEnabled via F5)
     if (m_screen == AppScreen::Galaxy) {
       handleInput();
       handleGestureInput(deltaTime);
       if (m_galaxy && m_galaxy->isViewingPlanet()) {
         update(deltaTime);
       }
-      if (m_quadViewEnabled) {
-        renderQuadView(deltaTime);
-      } else {
-        renderGalaxy(deltaTime);
-      }
     } else if (m_screen == AppScreen::SolarSystem) {
       handleSolarSystemInput();
+      handleGestureInput(deltaTime);
       m_simulation.update(deltaTime);
-      renderSolarSystem(deltaTime);
     } else {
       handleInput();
+      handleGestureInput(deltaTime);
       update(deltaTime);
-      if (m_quadViewEnabled) {
-        renderQuadView(deltaTime);
-      } else {
-        render(deltaTime);
-      }
+    }
+
+    // Bind FBO AFTER input so toggle takes effect this frame
+    bool holoThisFrame = m_quadViewEnabled;
+    if (holoThisFrame) {
+      int screenW = m_window->getWidth();
+      int screenH = m_window->getHeight();
+      int faceSize = static_cast<int>(std::min(screenW, screenH) / m_holoScale);
+      initHoloFBO(faceSize, faceSize);
+      glBindFramebuffer(GL_FRAMEBUFFER, m_holoFBO);
+      glViewport(0, 0, faceSize, faceSize);
+      m_renderer->resize(faceSize, faceSize);
+      m_camera->setAspectRatio(1.0f);
+    }
+
+    // Render (each function handles FBO→screen transition internally before UI)
+    if (m_screen == AppScreen::Galaxy) {
+      renderGalaxy(deltaTime);
+    } else if (m_screen == AppScreen::SolarSystem) {
+      renderSolarSystem(deltaTime);
+    } else {
+      render(deltaTime);
     }
 
     m_window->swapBuffers();
@@ -328,6 +479,16 @@ void Application::renderGalaxy(float dt) {
     m_galaxy->renderBackground(nullptr, io.DisplaySize.x, io.DisplaySize.y);
   }
 
+  // If hologram mode: unbind FBO, blit 4-face diamond, restore full-res for UI
+  if (m_quadViewEnabled && m_holoFBO) {
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    int sw = m_window->getWidth(), sh = m_window->getHeight();
+    blitHologram();
+    m_renderer->resize(sw, sh);
+    m_camera->setAspectRatio(static_cast<float>(sw) / static_cast<float>(sh));
+    glViewport(0, 0, sw, sh);
+  }
+
   m_ui->beginFrame();
 
   // Fade-in timer
@@ -363,6 +524,7 @@ void Application::renderGalaxy(float dt) {
 
     // Handle back button from the panel
     if (m_ui->wasBackPressed()) {
+      m_camera->setDistanceLimits(0.1f, 1000.0f);
       m_galaxy->startZoomToGalaxy();
     }
   }
@@ -424,14 +586,18 @@ void Application::renderGalaxy(float dt) {
     if (preset >= 0) {
       m_renderer->params() = UIManager::getPreset(preset);
       m_currentStatus = name + "  |  Preset";
+      m_ui->setCurrentExoplanetData(makeSolarSystemData(name));
     } else {
       loadPlanet(name);
     }
 
-    // Set up camera for planet viewing
-    m_camera->setPosition(glm::vec3(0.0f, 0.0f, 15.0f));
+    // Set up camera for planet viewing — distance scales with planet radius
+    float r = m_renderer->params().radius;
+    float viewDist = r * 3.0f;
     m_camera->setTarget(glm::vec3(0.0f));
-    m_renderer->setPlanetPosition(glm::vec3(0.0f, 0.0f, -10.0f));
+    m_camera->setPosition(glm::vec3(0.0f, 0.0f, viewDist));
+    m_camera->setDistanceLimits(r * 1.2f, r * 20.0f);
+    m_renderer->setPlanetPosition(glm::vec3(0.0f));
 
     // Clear simulation state
     m_simulation.clear();
@@ -452,6 +618,7 @@ void Application::renderGalaxy(float dt) {
       m_renderer->params() = UIManager::getPreset(preset);
       m_currentStatus = name + "  |  Preset";
       m_ui->setExoplanetStatus(m_currentStatus);
+      m_ui->setCurrentExoplanetData(makeSolarSystemData(name));
       LOG_INFO("Galaxy expand (preset): {}", name);
     } else {
       m_renderer->params() = m_savedParams;
@@ -462,10 +629,13 @@ void Application::renderGalaxy(float dt) {
     m_borderReleased = false;
     m_planetDetailFadeIn = 0.f;
 
-    // Reset camera to default planet viewing position
-    m_camera->setPosition(glm::vec3(0.0f, 0.0f, 15.0f));
+    // Reset camera to default planet viewing position — distance scales with planet radius
+    float r = m_renderer->params().radius;
+    float viewDist = r * 3.0f;
     m_camera->setTarget(glm::vec3(0.0f));
-    m_renderer->setPlanetPosition(glm::vec3(0.0f, 0.0f, -10.0f));
+    m_camera->setPosition(glm::vec3(0.0f, 0.0f, viewDist));
+    m_camera->setDistanceLimits(r * 1.2f, r * 20.0f);
+    m_renderer->setPlanetPosition(glm::vec3(0.0f));
     m_mouseLocked = false;
     glfwSetInputMode(m_window->getHandle(), GLFW_CURSOR, GLFW_CURSOR_NORMAL);
 
@@ -628,6 +798,16 @@ void Application::renderSolarSystem(float dt) {
 
   m_renderer->updateRings(dt);
 
+  // If hologram mode: unbind FBO, blit 4-face diamond, restore full-res for UI
+  if (m_quadViewEnabled && m_holoFBO) {
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    int sw = m_window->getWidth(), sh = m_window->getHeight();
+    blitHologram();
+    m_renderer->resize(sw, sh);
+    m_camera->setAspectRatio(static_cast<float>(sw) / static_cast<float>(sh));
+    glViewport(0, 0, sw, sh);
+  }
+
   // UI
   m_ui->beginFrame();
 
@@ -673,6 +853,7 @@ void Application::renderSolarSystem(float dt) {
 
     ImGui::Spacing();
     if (ImGui::Button("Back to Galaxy", ImVec2(-1, 0))) {
+      m_camera->setDistanceLimits(0.1f, 1000.0f);
       m_screen = AppScreen::Galaxy;
       m_galaxyFadeTimer = 0.f;
     }
@@ -691,6 +872,7 @@ void Application::loadPlanet(const std::string& name) {
 
   // First check if it's cached
   auto cachedParams = ExoplanetConverter::loadCachedParams(name);
+  LOG_INFO("loadPlanet: cache lookup for '{}': {}", name, cachedParams.has_value() ? "HIT" : "MISS");
   if (cachedParams) {
     m_renderer->params() = *cachedParams;
     m_currentStatus = name;
@@ -722,14 +904,20 @@ void Application::loadPlanet(const std::string& name) {
     LoadResult result;
     result.hasExoData = false;
 
-    // Query NASA
-    auto results = m_dataAggregator->getNasaClient().queryByNameSync(name);
-    if (results.empty()) {
+    LOG_INFO("loadPlanet async: querying all sources for '{}'", name);
+
+    auto aggResult = m_dataAggregator->queryPlanetSync(name);
+    auto data = std::move(aggResult.data);
+
+    if (data.name.empty() || (!data.mass_earth.hasValue() && !data.radius_earth.hasValue()
+        && !data.equilibrium_temp_k.hasValue() && data.host_star.name.empty())) {
+      LOG_WARN("loadPlanet: no meaningful data returned for '{}'", name);
       result.status = "Not found: \"" + name + "\"";
       return result;
     }
-
-    auto data = results[0];
+    LOG_INFO("loadPlanet: aggregated data for '{}' (NASA={}, EU={}, ExoMAST={})",
+             name, aggResult.sources.nasa_tap, aggResult.sources.exoplanet_eu,
+             aggResult.sources.exomast);
 
     // Fill ALL missing fields with scientific predictions + AI
     ExoplanetPredictor predictor;
@@ -750,8 +938,40 @@ void Application::loadPlanet(const std::string& name) {
 
 void Application::handleInput() {
   GLFWwindow* window = m_window->getHandle();
+  ImGuiIO& io = ImGui::GetIO();
 
-  // Tab toggle mouse lock
+  // Left-click drag to orbit around planet (always active, independent of keyboard)
+  static bool dragging = false;
+  static double dragLastX = 0, dragLastY = 0;
+
+  bool viewingPlanet =
+      m_screen == AppScreen::PlanetDetail ||
+      (m_screen == AppScreen::Galaxy && m_galaxy && m_galaxy->isViewingPlanet());
+
+  if (viewingPlanet && !io.WantCaptureMouse) {
+    bool lmbDown = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS;
+    if (lmbDown) {
+      double mx, my;
+      glfwGetCursorPos(window, &mx, &my);
+      if (!dragging) {
+        dragging = true;
+        dragLastX = mx;
+        dragLastY = my;
+      } else {
+        float dx = static_cast<float>(mx - dragLastX);
+        float dy = static_cast<float>(my - dragLastY);
+        dragLastX = mx;
+        dragLastY = my;
+        m_camera->rotate(-dx * 0.005f, dy * 0.005f);
+      }
+    } else {
+      dragging = false;
+    }
+  } else {
+    dragging = false;
+  }
+
+  // Tab toggle mouse lock (FPS mode)
   static bool tabWasPressed = false;
   bool tabPressed = glfwGetKey(window, GLFW_KEY_TAB) == GLFW_PRESS;
   if (tabPressed && !tabWasPressed) {
@@ -769,7 +989,7 @@ void Application::handleInput() {
   }
   tabWasPressed = tabPressed;
 
-  if (ImGui::GetIO().WantCaptureKeyboard && !m_mouseLocked) return;
+  if ((io.WantCaptureKeyboard || ImGui::IsAnyItemActive()) && !m_mouseLocked) return;
 
   // F1 toggle help overlay
   static bool f1WasPressed = false;
@@ -806,23 +1026,26 @@ void Application::handleInput() {
   }
   bracketRightWasPressed = bracketRightPressed;
 
-  // WASD movement
-  float moveSpeed = m_cameraSpeed;
-  float deltaTime = 0.016f;
-  if (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS) {
-    moveSpeed *= 5.0f;
-  }
-  if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) {
-    m_camera->moveForward(moveSpeed * deltaTime);
-  }
-  if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) {
-    m_camera->moveForward(-moveSpeed * deltaTime);
-  }
-  if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) {
-    m_camera->moveRight(-moveSpeed * deltaTime);
-  }
-  if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) {
-    m_camera->moveRight(moveSpeed * deltaTime);
+  // WASD movement — disabled in hologram mode when viewing a planet (orbit only)
+  bool planetLocked = m_quadViewEnabled && viewingPlanet;
+  if (!planetLocked) {
+    float moveSpeed = m_cameraSpeed;
+    float deltaTime = 0.016f;
+    if (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS) {
+      moveSpeed *= 5.0f;
+    }
+    if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) {
+      m_camera->moveForward(moveSpeed * deltaTime);
+    }
+    if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) {
+      m_camera->moveForward(-moveSpeed * deltaTime);
+    }
+    if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) {
+      m_camera->moveRight(-moveSpeed * deltaTime);
+    }
+    if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) {
+      m_camera->moveRight(moveSpeed * deltaTime);
+    }
   }
 }
 
@@ -869,8 +1092,15 @@ void Application::render(float dt) {
   m_renderer->beginFrame();
   m_renderer->render(*m_camera);
 
-  // Note: Don't render orbit trails in single planet view - that's only for
-  // solar system mode
+  // If hologram mode: unbind FBO, blit 4-face diamond, restore full-res for UI
+  if (m_quadViewEnabled && m_holoFBO) {
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    int sw = m_window->getWidth(), sh = m_window->getHeight();
+    blitHologram();
+    m_renderer->resize(sw, sh);
+    m_camera->setAspectRatio(static_cast<float>(sw) / static_cast<float>(sh));
+    glViewport(0, 0, sw, sh);
+  }
 
   m_ui->beginFrame();
 
@@ -952,6 +1182,7 @@ void Application::render(float dt) {
     m_borderFadeTimer = -1.f;
     m_borderReleased = false;
     m_planetDetailFadeIn = 1.f;
+    m_camera->setDistanceLimits(0.1f, 1000.0f);
     m_screen = AppScreen::Galaxy;
     LOG_INFO("Back to Galaxy screen");
   }
@@ -961,29 +1192,54 @@ void Application::handleGestureInput(float dt) {
   if (!m_gestureInput || !m_gestureInput->isConnected()) return;
 
   auto state = m_gestureInput->getState();
+  if (state.gesture == "none") return;
 
-  const float rotateSpeed = 2.0f;
-  const float zoomSpeed = 5.0f;
+  bool viewingPlanet =
+      m_screen == AppScreen::PlanetDetail ||
+      (m_screen == AppScreen::Galaxy && m_galaxy && m_galaxy->isViewingPlanet());
 
-  if (state.gesture == "open_palm") {
-    // Palm Z depth controls zoom
-    float zoomDelta = (state.palmZ - 1.0f) * zoomSpeed * dt;
-    m_camera->zoom(zoomDelta);
-  } else if (state.gesture == "pinch") {
-    // Pinch = rotate based on palm position (like a trackpad)
-    float dx = (state.palmX - 0.5f) * rotateSpeed * dt;
-    float dy = (state.palmY - 0.5f) * rotateSpeed * dt;
-    m_camera->rotate(dx, dy);
-  } else if (state.gesture == "fist") {
-    // Fist = move forward (warp)
-    m_camera->moveForward(m_cameraSpeed * dt);
-  } else if (state.gesture == "point") {
-    // Point = slow precise rotation based on palm position
-    float dx = (state.palmX - 0.5f) * 0.5f * dt;
-    float dy = (state.palmY - 0.5f) * 0.5f * dt;
-    m_camera->rotate(dx, dy);
+  bool inGalaxyNav =
+      m_screen == AppScreen::Galaxy && !viewingPlanet;
+
+  if (viewingPlanet || m_screen == AppScreen::SolarSystem) {
+    // Orbit camera gestures
+    const float rotateSpeed = 3.0f;
+    float zoomSpeed = m_camera->getDistance() * 2.0f;
+
+    if (state.gesture == "pinch") {
+      float dx = (state.palmX - 0.5f) * rotateSpeed * dt;
+      float dy = (state.palmY - 0.5f) * rotateSpeed * dt;
+      m_camera->rotate(dx, dy);
+    } else if (state.gesture == "open_palm") {
+      float zoomDelta = (state.palmZ - 1.0f) * zoomSpeed * dt;
+      m_camera->zoom(zoomDelta);
+    } else if (state.gesture == "point") {
+      float dx = (state.palmX - 0.5f) * 1.0f * dt;
+      float dy = (state.palmY - 0.5f) * 1.0f * dt;
+      m_camera->rotate(dx, dy);
+    }
+  } else if (inGalaxyNav) {
+    // Galaxy free-fly camera gestures
+    auto* cam = m_galaxy ? m_galaxy->getFreeCamera() : nullptr;
+    if (!cam) return;
+
+    if (state.gesture == "pinch") {
+      float dx = (state.palmX - 0.5f) * 80.0f * dt;
+      float dy = -(state.palmY - 0.5f) * 80.0f * dt;
+      cam->processMouseMovement(dx, dy);
+    } else if (state.gesture == "fist") {
+      cam->processKeyboard(true, false, false, false, false, false, dt);
+    } else if (state.gesture == "open_palm") {
+      float speed = (state.palmZ - 1.0f) * 3.0f;
+      if (std::abs(speed) > 0.1f) {
+        cam->processKeyboard(speed > 0, speed < 0, false, false, false, false, dt);
+      }
+    } else if (state.gesture == "point") {
+      float dx = (state.palmX - 0.5f) * 40.0f * dt;
+      float dy = -(state.palmY - 0.5f) * 40.0f * dt;
+      cam->processMouseMovement(dx, dy);
+    }
   }
-
 }
 
 void Application::renderGestureHUD() {
@@ -1001,7 +1257,8 @@ void Application::renderGestureHUD() {
                        ImGuiWindowFlags_NoFocusOnAppearing |
                        ImGuiWindowFlags_NoNav)) {
     if (!gestureConnected) {
-      ImGui::TextColored(ImVec4(0.5f, 0.5f, 0.5f, 1.0f), "Gesture: waiting (UDP 9001)");
+      ImGui::TextColored(ImVec4(0.5f, 0.5f, 0.5f, 1.0f), "Gesture: waiting (UDP %d)",
+                         m_gestureInput ? m_gestureInput->getPort() : 9001);
     } else {
       auto gs = m_gestureInput->getState();
       ImVec4 col = {0.3f, 1.0f, 0.3f, 1.0f};
@@ -1020,6 +1277,60 @@ void Application::renderGestureHUD() {
     }
   }
   ImGui::End();
+
+  // Live finger skeleton overlay (full-screen, transparent)
+  if (gestureConnected) {
+    auto gs = m_gestureInput->getState();
+    if (gs.hasTips && gs.gesture != "none") {
+      ImDrawList* dl = ImGui::GetForegroundDrawList();
+      float W = io.DisplaySize.x;
+      float H = io.DisplaySize.y;
+
+      // Vision coords: origin bottom-left, x right, y up — flip Y for screen
+      auto toScreen = [W, H](float vx, float vy) -> ImVec2 {
+        return ImVec2(vx * W, (1.0f - vy) * H);
+      };
+
+      ImVec2 wristP  = toScreen(gs.wrist.x,  gs.wrist.y);
+      ImVec2 thumbP  = toScreen(gs.thumb.x,  gs.thumb.y);
+      ImVec2 indexP  = toScreen(gs.index.x,  gs.index.y);
+      ImVec2 middleP = toScreen(gs.middle.x, gs.middle.y);
+      ImVec2 ringP   = toScreen(gs.ring.x,   gs.ring.y);
+      ImVec2 littleP = toScreen(gs.little.x, gs.little.y);
+      ImVec2 palmP   = toScreen(gs.palmX,    gs.palmY);
+
+      ImU32 boneCol  = IM_COL32(100, 200, 255, 160);
+      ImU32 jointCol = IM_COL32(255, 255, 255, 220);
+      ImU32 tipCol   = IM_COL32(0, 255, 120, 255);
+      ImU32 palmCol  = IM_COL32(255, 200, 50, 180);
+
+      // Bone lines: wrist → palm → each finger tip
+      float thickness = 2.5f;
+      dl->AddLine(wristP, palmP,   boneCol, thickness);
+      dl->AddLine(palmP,  thumbP,  boneCol, thickness);
+      dl->AddLine(palmP,  indexP,  boneCol, thickness);
+      dl->AddLine(palmP,  middleP, boneCol, thickness);
+      dl->AddLine(palmP,  ringP,   boneCol, thickness);
+      dl->AddLine(palmP,  littleP, boneCol, thickness);
+
+      // Joints at wrist and palm
+      dl->AddCircleFilled(wristP, 6.0f, jointCol);
+      dl->AddCircleFilled(palmP,  7.0f, palmCol);
+
+      // Finger tips with glow
+      ImVec2 tipPts[] = {thumbP, indexP, middleP, ringP, littleP};
+      const char* tipNames[] = {"T", "I", "M", "R", "L"};
+      for (int i = 0; i < 5; i++) {
+        dl->AddCircleFilled(tipPts[i], 10.0f, IM_COL32(0, 255, 120, 40));
+        dl->AddCircleFilled(tipPts[i], 5.0f,  tipCol);
+        dl->AddText(ImVec2(tipPts[i].x + 8, tipPts[i].y - 6),
+                    IM_COL32(200, 200, 200, 180), tipNames[i]);
+      }
+
+      // Gesture label at palm
+      dl->AddText(ImVec2(palmP.x + 12, palmP.y - 8), palmCol, gs.gesture.c_str());
+    }
+  }
 }
 
 void Application::renderHelpOverlay() {
@@ -1061,113 +1372,172 @@ void Application::renderHelpOverlay() {
   ImGui::End();
 }
 
-void Application::renderQuadView(float dt) {
+void Application::initHoloFBO(int w, int h) {
+  if (m_holoFBO && m_holoTexW == w && m_holoTexH == h) return;
+
+  if (m_holoFBO) {
+    glDeleteFramebuffers(1, &m_holoFBO);
+    glDeleteTextures(1, &m_holoTex);
+    glDeleteRenderbuffers(1, &m_holoDepthRBO);
+  }
+
+  glGenFramebuffers(1, &m_holoFBO);
+  glBindFramebuffer(GL_FRAMEBUFFER, m_holoFBO);
+
+  glGenTextures(1, &m_holoTex);
+  glBindTexture(GL_TEXTURE_2D, m_holoTex);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, m_holoTex, 0);
+
+  glGenRenderbuffers(1, &m_holoDepthRBO);
+  glBindRenderbuffer(GL_RENDERBUFFER, m_holoDepthRBO);
+  glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, w, h);
+  glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, m_holoDepthRBO);
+
+  GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+  if (status != GL_FRAMEBUFFER_COMPLETE) {
+    LOG_ERROR("Hologram FBO incomplete: 0x{:X}", status);
+  }
+
+  glBindFramebuffer(GL_FRAMEBUFFER, 0);
+  m_holoTexW = w;
+  m_holoTexH = h;
+
+  initHoloShader();
+}
+
+void Application::initHoloShader() {
+  if (m_holoShader) return;
+
+  const char* vertSrc = R"(
+#version 410 core
+layout(location = 0) in vec2 aPos;
+layout(location = 1) in vec2 aUV;
+out vec2 vUV;
+void main() {
+    gl_Position = vec4(aPos, 0.0, 1.0);
+    vUV = aUV;
+}
+)";
+
+  const char* fragSrc = R"(
+#version 410 core
+in vec2 vUV;
+out vec4 FragColor;
+uniform sampler2D uTexture;
+void main() {
+    FragColor = texture(uTexture, vUV);
+}
+)";
+
+  GLuint vs = glCreateShader(GL_VERTEX_SHADER);
+  glShaderSource(vs, 1, &vertSrc, nullptr);
+  glCompileShader(vs);
+
+  GLuint fs = glCreateShader(GL_FRAGMENT_SHADER);
+  glShaderSource(fs, 1, &fragSrc, nullptr);
+  glCompileShader(fs);
+
+  m_holoShader = glCreateProgram();
+  glAttachShader(m_holoShader, vs);
+  glAttachShader(m_holoShader, fs);
+  glLinkProgram(m_holoShader);
+  glDeleteShader(vs);
+  glDeleteShader(fs);
+
+  // Fullscreen quad: position (x,y) + uv (u,v) — will be overwritten per-face
+  float quad[] = {
+    -1, -1,  0, 0,
+     1, -1,  1, 0,
+     1,  1,  1, 1,
+    -1, -1,  0, 0,
+     1,  1,  1, 1,
+    -1,  1,  0, 1,
+  };
+
+  glGenVertexArrays(1, &m_holoQuadVAO);
+  glGenBuffers(1, &m_holoQuadVBO);
+  glBindVertexArray(m_holoQuadVAO);
+  glBindBuffer(GL_ARRAY_BUFFER, m_holoQuadVBO);
+  glBufferData(GL_ARRAY_BUFFER, sizeof(quad), quad, GL_DYNAMIC_DRAW);
+  glEnableVertexAttribArray(0);
+  glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
+  glEnableVertexAttribArray(1);
+  glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
+  glBindVertexArray(0);
+}
+
+void Application::blitHologram() {
   int w = m_window->getWidth();
   int h = m_window->getHeight();
+  float baseSize = std::min((float)w, (float)h) / m_holoScale;
+  float cx = w * 0.5f;
+  float cy = h * 0.5f;
+  float gap = baseSize * m_holoGap;
 
-  int baseSize = std::min(w, h) / 5;
-  int cx = w / 2;
-  int cy = h / 2;
-  int gap = baseSize / 4;
-
-  struct QuadFace {
-    int x, y;
-    float yawOffset;
+  // Pepper's Ghost diamond layout with UV flipping.
+  // Each face: pixel rect (x,y,size) + UV corners for the flip.
+  //   Bottom: original (UV normal)
+  //   Top: flip both X+Y (180°)
+  //   Left: flip X only
+  //   Right: flip Y only
+  struct Face {
+    float px, py;
+    float u0, v0, u1, v1;
   };
 
-  QuadFace faces[] = {
-    {cx - baseSize / 2, cy + baseSize / 2 + gap,  static_cast<float>(M_PI)},
-    {cx - baseSize / 2, cy - baseSize * 3 / 2 - gap, 0.0f},
-    {cx - baseSize * 3 / 2 - gap, cy - baseSize / 2, static_cast<float>(3.0 * M_PI / 2.0)},
-    {cx + baseSize / 2 + gap,     cy - baseSize / 2, static_cast<float>(M_PI / 2.0)}
+  Face faces[] = {
+    { cx - baseSize * 0.5f, cy - baseSize * 1.5f - gap,   0, 0, 1, 1 },  // Bottom: normal
+    { cx - baseSize * 0.5f, cy + baseSize * 0.5f + gap,   1, 1, 0, 0 },  // Top: flip X+Y
+    { cx - baseSize * 1.5f - gap, cy - baseSize * 0.5f,   1, 0, 0, 1 },  // Left: flip X
+    { cx + baseSize * 0.5f + gap, cy - baseSize * 0.5f,   0, 1, 1, 0 },  // Right: flip Y
   };
 
+  glBindFramebuffer(GL_FRAMEBUFFER, 0);
+  glViewport(0, 0, w, h);
   glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-  bool useGalaxyStarField = (m_screen == AppScreen::Galaxy && m_galaxy &&
-                             !m_galaxy->isViewingPlanet());
+  glDisable(GL_DEPTH_TEST);
+  glUseProgram(m_holoShader);
 
-  if (useGalaxyStarField) {
-    // Galaxy starfield quad-view: render star field from 4 camera angles
-    for (auto& face : faces) {
-      glViewport(face.x, face.y, baseSize, baseSize);
-      glScissor(face.x, face.y, baseSize, baseSize);
-      glEnable(GL_SCISSOR_TEST);
+  glActiveTexture(GL_TEXTURE0);
+  glBindTexture(GL_TEXTURE_2D, m_holoTex);
+  glUniform1i(glGetUniformLocation(m_holoShader, "uTexture"), 0);
 
-      m_galaxy->renderStarFieldQuadFace(
-          static_cast<float>(baseSize), static_cast<float>(baseSize),
-          face.yawOffset);
-    }
-  } else {
-    // Planet quad-view: render planet from 4 camera angles
-    float origYaw = m_camera->getYaw();
-    float origAspect = m_camera->getAspectRatio();
-    m_camera->setAspectRatio(1.0f);
+  glBindVertexArray(m_holoQuadVAO);
+  glBindBuffer(GL_ARRAY_BUFFER, m_holoQuadVBO);
 
-    m_renderer->beginFrame();
-    for (auto& face : faces) {
-      glViewport(face.x, face.y, baseSize, baseSize);
-      glScissor(face.x, face.y, baseSize, baseSize);
-      glEnable(GL_SCISSOR_TEST);
+  for (auto& f : faces) {
+    // Convert pixel coords to NDC [-1, 1]
+    float x0 = (f.px / w) * 2.0f - 1.0f;
+    float y0 = (f.py / h) * 2.0f - 1.0f;
+    float x1 = ((f.px + baseSize) / w) * 2.0f - 1.0f;
+    float y1 = ((f.py + baseSize) / h) * 2.0f - 1.0f;
 
-      m_camera->setYaw(origYaw + face.yawOffset);
-      m_renderer->render(*m_camera);
-    }
-
-    m_camera->setYaw(origYaw);
-    m_camera->setAspectRatio(origAspect);
+    float quad[] = {
+      x0, y0,  f.u0, f.v0,
+      x1, y0,  f.u1, f.v0,
+      x1, y1,  f.u1, f.v1,
+      x0, y0,  f.u0, f.v0,
+      x1, y1,  f.u1, f.v1,
+      x0, y1,  f.u0, f.v1,
+    };
+    glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(quad), quad);
+    glDrawArrays(GL_TRIANGLES, 0, 6);
   }
 
-  glDisable(GL_SCISSOR_TEST);
-  glViewport(0, 0, w, h);
+  glBindVertexArray(0);
+  glUseProgram(0);
+  glEnable(GL_DEPTH_TEST);
+}
 
-  m_ui->beginFrame();
-
-  ImGuiIO& io = ImGui::GetIO();
-  ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x / 2 - 80, 5));
-  ImGui::SetNextWindowBgAlpha(0.7f);
-  if (ImGui::Begin("##quadview_indicator", nullptr,
-                   ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove |
-                       ImGuiWindowFlags_NoSavedSettings |
-                       ImGuiWindowFlags_AlwaysAutoResize |
-                       ImGuiWindowFlags_NoFocusOnAppearing)) {
-    ImGui::TextColored(ImVec4(0.3f, 1.0f, 0.3f, 1.0f), "HOLOGRAM MODE [F5]");
-  }
-  ImGui::End();
-
-  renderGestureHUD();
-  renderHelpOverlay();
-
-  auto simResult = m_ui->renderSimulationControls(
-      m_renderer->isPaused(), static_cast<double>(m_renderer->timeScale()),
-      false, "");
-  if (simResult.pauseToggled) {
-    m_renderer->setPaused(!m_renderer->isPaused());
-  }
-  if (simResult.timeScaleChanged) {
-    m_renderer->setTimeScale(static_cast<float>(simResult.newTimeScale));
-  }
-
-  m_ui->endFrame();
-  if (!useGalaxyStarField) {
-    m_renderer->endFrame();
-  }
-
-  if (m_ui->wasBackPressed()) {
-    m_savedParams = m_renderer->params();
-    m_renderer->params().radius = 0.001f;
-    m_renderer->params().atmosphereDensity = 0.0f;
-    m_renderer->params().cloudsDensity = 0.0f;
-    m_galaxy->reset();
-    m_borderFadeTimer = -1.f;
-    m_borderReleased = false;
-    m_planetDetailFadeIn = 1.f;
-    m_quadViewEnabled = false;
-    m_renderer->setQuadView(false);
-    m_screen = AppScreen::Galaxy;
-    LOG_INFO("Back to Galaxy screen");
-  }
+void Application::renderQuadView(float /*dt*/) {
+  // Legacy stub — hologram mode now uses FBO capture + blitHologram()
 }
 
 void Application::shutdown() {
@@ -1175,6 +1545,21 @@ void Application::shutdown() {
   if (m_blankCursor) {
     glfwDestroyCursor(m_blankCursor);
     m_blankCursor = nullptr;
+  }
+  if (m_holoFBO) {
+    glDeleteFramebuffers(1, &m_holoFBO);
+    glDeleteTextures(1, &m_holoTex);
+    glDeleteRenderbuffers(1, &m_holoDepthRBO);
+    m_holoFBO = 0;
+  }
+  if (m_holoShader) {
+    glDeleteProgram(m_holoShader);
+    m_holoShader = 0;
+  }
+  if (m_holoQuadVAO) {
+    glDeleteVertexArrays(1, &m_holoQuadVAO);
+    glDeleteBuffers(1, &m_holoQuadVBO);
+    m_holoQuadVAO = 0;
   }
   m_gestureInput.reset();
   m_galaxy.reset();

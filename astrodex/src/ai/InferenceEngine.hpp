@@ -13,10 +13,12 @@ namespace astrocore {
 class BedrockClient;
 class JimmyClient;
 class GroqClient;
+class GeminiClient;
 struct PlanetParams;
 
 // Available inference backends
 enum class InferenceBackend {
+    GOOGLE_GEMINI,      // Gemini 2.0 Flash via Google AI (preferred for hackathon)
     AWS_BEDROCK,        // Claude Sonnet via AWS Bedrock (slower but highest quality)
     AWS_BEDROCK_HAIKU,  // Claude Haiku via AWS Bedrock (fast, good quality)
     GROQ_KIMI_K2,       // Kimi K2 via Groq (very fast, good quality)
@@ -60,10 +62,12 @@ private:
     std::unique_ptr<BedrockClient> m_bedrock;
     std::unique_ptr<JimmyClient> m_jimmy;
     std::unique_ptr<GroqClient> m_groq;
+    std::unique_ptr<GeminiClient> m_gemini;
     InferenceBackend m_currentBackend = InferenceBackend::NONE;
     bool m_bedrockAvailable = false;
     bool m_jimmyAvailable = false;
     bool m_groqAvailable = false;
+    bool m_geminiAvailable = false;
 
     // Send query to current backend
     std::optional<std::string> queryBackend(const std::string& systemPrompt,

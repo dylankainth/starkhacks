@@ -171,7 +171,7 @@ private:
     float m_time = 0.0f;
     bool m_paused = false;
     float m_timeScale = 1.0f;
-    glm::vec3 m_planetPosition{0.0f, 0.0f, -10.0f};
+    glm::vec3 m_planetPosition{0.0f, 0.0f, 0.0f};
 
     SphereRenderer m_sphereRenderer;
     OrbitRenderer m_orbitRenderer;

@@ -64,7 +64,7 @@ AggregatedExoplanetData ExoplanetDataAggregator::queryPlanetSync(const std::stri
 
     // 1. Query NASA TAP API (primary source for basic properties)
     if (m_impl->config.query_nasa && m_impl->nasaClient) {
-        LOG_DEBUG("Querying NASA TAP for {}...", planetName);
+        LOG_INFO("Querying NASA TAP for {}...", planetName);
         auto nasaResults = m_impl->nasaClient->queryByNameSync(planetName);
 
         if (!nasaResults.empty()) {
@@ -100,7 +100,7 @@ AggregatedExoplanetData ExoplanetDataAggregator::queryPlanetSync(const std::stri
 
     // 2. Query Exoplanet.eu for molecules, albedo, measured temperature (CRITICAL FOR COLOR!)
     if (m_impl->config.query_exoplanet_eu && m_impl->euClient) {
-        LOG_DEBUG("Querying Exoplanet.eu for {}...", planetName);
+        LOG_INFO("Querying Exoplanet.eu for {}...", planetName);
         auto euData = m_impl->euClient->queryByNameSync(planetName);
 
         if (euData.has_value()) {
@@ -124,13 +124,13 @@ AggregatedExoplanetData ExoplanetDataAggregator::queryPlanetSync(const std::stri
                 LOG_INFO("Exoplanet.eu: MEASURED TEMP: {:.0f} K", *euData->temp_measured_k);
             }
         } else {
-            LOG_DEBUG("Exoplanet.eu: No data for {}", planetName);
+            LOG_INFO("Exoplanet.eu: No data for {}", planetName);
         }
     }
 
     // 3. Query ExoMAST for additional atmospheric spectra data
     if (m_impl->config.query_exomast && m_impl->exomastClient) {
-        LOG_DEBUG("Querying ExoMAST for {} atmospheric data...", planetName);
+        LOG_INFO("Querying ExoMAST for {} atmospheric data...", planetName);
         auto atmosData = m_impl->exomastClient->queryAtmosphereSync(planetName);
 
         if (atmosData.has_value() && !atmosData->detections.empty()) {
@@ -152,7 +152,7 @@ AggregatedExoplanetData ExoplanetDataAggregator::queryPlanetSync(const std::stri
             LOG_INFO("ExoMAST: DETECTED MOLECULES for {}: {} (via {})",
                      planetName, molecules, result.best_spectral_instrument);
         } else {
-            LOG_DEBUG("ExoMAST: No atmospheric spectra for {}", planetName);
+            LOG_INFO("ExoMAST: No atmospheric spectra for {}", planetName);
         }
     }
 

@@ -203,7 +203,7 @@ struct ContentView: View {
 
     private var isActive: Bool {
         switch streamer.state {
-        case .connecting, .streaming, .unreachable: return true
+        case .connecting, .streaming: return true
         default: return false
         }
     }
@@ -269,7 +269,7 @@ struct ContentView: View {
         case .idle: return "Idle"
         case .connecting: return "Connecting to \(ipAddress):\(port)..."
         case .streaming: return "Streaming to \(ipAddress):\(port)"
-        case .unreachable: return "Unreachable \u{2014} streaming anyway"
+        case .unreachable: return "Unreachable \u{2014} check IP/port and retry"
         case .error(let msg): return msg
         }
     }

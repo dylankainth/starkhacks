@@ -68,12 +68,11 @@ void main() {
     }
 
     // ── Normal star rendering ───────────────────────────────────────────
-    if (r2 > 1.0) discard;
+    if (r2 > 1.5) discard;
 
-    float core = exp(-r2 * 8.0);
-    float halo = exp(-r2 * 2.0);
-    float alpha = core * 0.8 + halo * 0.3;
-    if (alpha < 0.01) discard;
+    float core = exp(-r2 * 6.0);
+    float halo = exp(-r2 * 1.5);
+    float alpha = core * 0.9 + halo * 0.4;
 
     vec3 coreColor = mix(vColor, vec3(1.0), 0.6);
     vec3 color = mix(vColor * halo, coreColor * core, core / max(core + halo, 0.001));
@@ -81,5 +80,5 @@ void main() {
     float brightness = min(vBrightness, 50.0);
     color *= brightness;
 
-    fragColor = vec4(color, alpha);
+    fragColor = vec4(color, max(alpha, 0.02));
 }

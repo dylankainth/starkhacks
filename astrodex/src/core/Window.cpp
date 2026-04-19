@@ -62,9 +62,12 @@ Window::Window(const WindowConfig& config) {
                  rendererStr.find("Radeon") != std::string::npos;
     bool isIntel = vendor.find("Intel") != std::string::npos;
 
-    if (isMesa && (isAMD || isIntel)) {
+    if (isMesa && isAMD) {
+        m_pointSizeBoost = 4.0f;
+        LOG_INFO("Mesa AMD driver detected — applying 4x point size boost for star visibility");
+    } else if (isMesa && isIntel) {
         m_pointSizeBoost = 2.0f;
-        LOG_INFO("Mesa driver detected — applying 2x point size boost for star visibility");
+        LOG_INFO("Mesa Intel driver detected — applying 2x point size boost for star visibility");
     }
     if (m_maxPointSize < 64.0f) {
         LOG_WARN("Low max point size ({}) — stars may render small", m_maxPointSize);

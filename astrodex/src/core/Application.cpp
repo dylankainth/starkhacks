@@ -254,15 +254,16 @@ void Application::run() {
     m_window->pollEvents();
 
     if (m_screen == AppScreen::Galaxy) {
-      // When viewing a planet from galaxy, enable camera controls
+      handleInput();  // Always handle input (F5 quad-view toggle, etc.)
+      handleGestureInput(deltaTime);
       if (m_galaxy && m_galaxy->isViewingPlanet()) {
-        handleInput();
         update(deltaTime);
-      } else {
-        // Still handle gesture input even in galaxy browsing mode
-        handleGestureInput(deltaTime);
       }
-      renderGalaxy(deltaTime);
+      if (m_quadViewEnabled && m_galaxy && m_galaxy->isViewingPlanet()) {
+        renderQuadView(deltaTime);
+      } else {
+        renderGalaxy(deltaTime);
+      }
     } else if (m_screen == AppScreen::SolarSystem) {
       handleSolarSystemInput();
       m_simulation.update(deltaTime);

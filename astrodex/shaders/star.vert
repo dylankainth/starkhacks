@@ -37,11 +37,13 @@ void main() {
     }
 
     // Point size: brighter and closer -> larger
-    float size = uPointScale * pow(max(flux, 1e-10), 0.25) * 30.0;
+    flux = max(flux, 1e-8);
+    float size = uPointScale * pow(flux, 0.25) * 30.0;
+    size = max(size, 1.5);  // Floor: every star is at least visible
 
     // Perceptual brightness (compute BEFORE warp so we can scale by it)
     float logBright = log2(flux * 1e6 + 1.0) / 20.0;
-    float baseBrightness = max(0.08, logBright);
+    float baseBrightness = max(0.15, logBright);
 
     // During warp: scale streak size by star brightness
     // Only bright stars (baseBrightness > ~0.3) get long streaks

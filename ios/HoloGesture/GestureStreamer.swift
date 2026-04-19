@@ -127,22 +127,18 @@ final class GestureStreamer: NSObject, ObservableObject {
                 probe.cancel()
                 DispatchQueue.main.async { self?.beginStreaming() }
             case .waiting:
-                // Host exists on network but port not open — still stream UDP
                 probe.cancel()
                 DispatchQueue.main.async { self?.beginStreaming() }
             case .failed:
                 probe.cancel()
                 DispatchQueue.main.async {
                     self?.setState(.unreachable)
-                    // Still start streaming — user may open the port later
-                    self?.beginStreaming()
                 }
             default:
                 break
             }
         }
 
-        // Timeout: if no response in 2s, treat as unreachable but still stream
         probe.start(queue: .global(qos: .utility))
         DispatchQueue.global().asyncAfter(deadline: .now() + 2.0) { [weak self] in
             guard let self = self else { return }
@@ -150,7 +146,6 @@ final class GestureStreamer: NSObject, ObservableObject {
                 probe.cancel()
                 DispatchQueue.main.async {
                     self.setState(.unreachable)
-                    self.beginStreaming()
                 }
             }
         }
@@ -422,6 +417,12 @@ final class GestureStreamer: NSObject, ObservableObject {
             guard let self = self else { return }
             guard self.state != newState else { return }
             self.state = newState
+            if case .unreachable = newState {
+                if self.fd >= 0 {
+                    Darwin.close(self.fd)
+                    self.fd = -1
+                }
+            }
         }
     }
 
@@ -434,17 +435,17 @@ final class GestureStreamer: NSObject, ObservableObject {
 
         guard let allPoints = try? observation.recognizedPoints(.all) else { return nil }
 
-        guard let wrist = allPoints[.wrist], wrist.confidence > 0.3,
-              let thumbTip = allPoints[.thumbTip], thumbTip.confidence > 0.3,
+        guard let wrist = allPoints[.wrist], wrist.confidence > 0.2,
+              let thumbTip = allPoints[.thumbTip], thumbTip.confidence > 0.1,
               let thumbCMC = allPoints[.thumbCMC],
-              let indexTip = allPoints[.indexTip], indexTip.confidence > 0.3,
-              let indexMCP = allPoints[.indexMCP], indexMCP.confidence > 0.3,
-              let middleTip = allPoints[.middleTip], middleTip.confidence > 0.3,
-              let middleMCP = allPoints[.middleMCP], middleMCP.confidence > 0.3,
-              let ringTip = allPoints[.ringTip], ringTip.confidence > 0.3,
-              let ringMCP = allPoints[.ringMCP], ringMCP.confidence > 0.3,
-              let littleTip = allPoints[.littleTip], littleTip.confidence > 0.3,
-              let littleMCP = allPoints[.littleMCP], littleMCP.confidence > 0.3
+              let indexTip = allPoints[.indexTip], indexTip.confidence > 0.1,
+              let indexMCP = allPoints[.indexMCP], indexMCP.confidence > 0.2,
+              let middleTip = allPoints[.middleTip], middleTip.confidence > 0.1,
+              let middleMCP = allPoints[.middleMCP], middleMCP.confidence > 0.2,
+              let ringTip = allPoints[.ringTip], ringTip.confidence > 0.1,
+              let ringMCP = allPoints[.ringMCP], ringMCP.confidence > 0.2,
+              let littleTip = allPoints[.littleTip], littleTip.confidence > 0.1,
+              let littleMCP = allPoints[.littleMCP], littleMCP.confidence > 0.2
         else { return nil }
 
         let wristLoc = wrist.location
@@ -515,7 +516,25 @@ final class GestureStreamer: NSObject, ObservableObject {
         ) / 6.0
 
         // Gesture classification priority:
-        // 1. Pinch
+        // 1. Fist: check BEFORE pinch — thumb+index naturally close during fist
+        let allTipsCloseToWrist =
+            dist(thumbTip.location, wristLoc) < 0.20 &&
+            dist(indexTip.location, wristLoc) < 0.20 &&
+            dist(middleTip.location, wristLoc) < 0.20 &&
+            dist(ringTip.location, wristLoc) < 0.20 &&
+            dist(littleTip.location, wristLoc) < 0.20
+
+        if allTipsCloseToWrist && fingersExtendedCount <= 1 {
+            return GestureResult(
+                gesture: .fist,
+                hand: hand,
+                confidence: avgConfidence,
+                palm: palm,
+                fingersExtended: 0
+            )
+        }
+
+        // 2. Pinch
         let pinchDist = dist(thumbTip.location, indexTip.location)
         if pinchDist < 0.03 {
             return GestureResult(
@@ -524,24 +543,6 @@ final class GestureStreamer: NSObject, ObservableObject {
                 confidence: avgConfidence,
                 palm: palm,
                 fingersExtended: fingersExtendedCount
-            )
-        }
-
-        // 2. Fist: all fingertip-to-wrist distances below threshold
-        let allTipsCloseToWrist =
-            dist(thumbTip.location, wristLoc) < 0.15 &&
-            dist(indexTip.location, wristLoc) < 0.15 &&
-            dist(middleTip.location, wristLoc) < 0.15 &&
-            dist(ringTip.location, wristLoc) < 0.15 &&
-            dist(littleTip.location, wristLoc) < 0.15
-
-        if allTipsCloseToWrist && fingersExtendedCount == 0 {
-            return GestureResult(
-                gesture: .fist,
-                hand: hand,
-                confidence: avgConfidence,
-                palm: palm,
-                fingersExtended: 0
             )
         }
 

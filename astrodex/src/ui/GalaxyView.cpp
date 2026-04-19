@@ -1466,6 +1466,23 @@ void GalaxyView::renderStarField(float W, float H) {
     m_starRenderer->render(*m_freeCamera, m_time, m_pointScale, m_brightnessBoost, m_debugStars, m_warpFactor);
 }
 
+void GalaxyView::renderStarFieldQuadFace(float W, float H, float yawOffset) {
+    if (!m_starRenderer || !m_freeCamera || !m_initialized) return;
+
+    float origYaw = m_freeCamera->getYaw();
+    float origPitch = m_freeCamera->getPitch();
+    float origAspect = W / std::max(H, 1.0f);
+
+    m_freeCamera->setAspectRatio(1.0f);
+    m_freeCamera->setYawPitch(origYaw + yawOffset * (180.0f / 3.14159265f), origPitch);
+
+    m_starRenderer->beginFrame();
+    m_starRenderer->render(*m_freeCamera, m_time, m_pointScale, m_brightnessBoost, m_debugStars, m_warpFactor);
+
+    m_freeCamera->setYawPitch(origYaw, origPitch);
+    m_freeCamera->setAspectRatio(origAspect);
+}
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // Planet Zoom Transitions
 // ═══════════════════════════════════════════════════════════════════════════════

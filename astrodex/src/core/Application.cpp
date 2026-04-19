@@ -254,12 +254,12 @@ void Application::run() {
     m_window->pollEvents();
 
     if (m_screen == AppScreen::Galaxy) {
-      handleInput();  // Always handle input (F5 quad-view toggle, etc.)
+      handleInput();
       handleGestureInput(deltaTime);
       if (m_galaxy && m_galaxy->isViewingPlanet()) {
         update(deltaTime);
       }
-      if (m_quadViewEnabled && m_galaxy && m_galaxy->isViewingPlanet()) {
+      if (m_quadViewEnabled) {
         renderQuadView(deltaTime);
       } else {
         renderGalaxy(deltaTime);
@@ -976,54 +976,62 @@ void Application::renderQuadView(float dt) {
   int w = m_window->getWidth();
   int h = m_window->getHeight();
 
-  // Diamond/cross layout matching the Pepper's Ghost pyramid geometry.
-  // Each face is a square centered on an edge of the screen.
-  // Size = min(w,h)/3 so four faces fit without overlap.
   int baseSize = std::min(w, h) / 3;
   int cx = w / 2;
   int cy = h / 2;
-
-  float origYaw = m_camera->getYaw();
-  float origAspect = m_camera->getAspectRatio();
-  m_camera->setAspectRatio(1.0f);  // Square viewports
 
   struct QuadFace {
     int x, y;
     float yawOffset;
   };
 
-  // Pepper's Ghost: each acrylic panel reflects from one screen edge.
-  // Back face → top, front face → bottom, left → left, right → right.
-  // Content is horizontally mirrored because the viewer sees a reflection.
   QuadFace faces[] = {
-    {cx - baseSize / 2, h - baseSize,     static_cast<float>(M_PI)},           // Top = back (+180°)
-    {cx - baseSize / 2, 0,                0.0f},                                // Bottom = front (0°)
-    {0,                 cy - baseSize / 2, static_cast<float>(3.0 * M_PI / 2.0)}, // Left (-90°)
-    {w - baseSize,      cy - baseSize / 2, static_cast<float>(M_PI / 2.0)}     // Right (+90°)
+    {cx - baseSize / 2, h - baseSize,     static_cast<float>(M_PI)},
+    {cx - baseSize / 2, 0,                0.0f},
+    {0,                 cy - baseSize / 2, static_cast<float>(3.0 * M_PI / 2.0)},
+    {w - baseSize,      cy - baseSize / 2, static_cast<float>(M_PI / 2.0)}
   };
 
-  // Clear to black (the area between quadrants must be black for the hologram)
   glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-  m_renderer->beginFrame();
+  bool useGalaxyStarField = (m_screen == AppScreen::Galaxy && m_galaxy &&
+                             !m_galaxy->isViewingPlanet());
 
-  for (auto& face : faces) {
-    glViewport(face.x, face.y, baseSize, baseSize);
-    glScissor(face.x, face.y, baseSize, baseSize);
-    glEnable(GL_SCISSOR_TEST);
+  if (useGalaxyStarField) {
+    // Galaxy starfield quad-view: render star field from 4 camera angles
+    for (auto& face : faces) {
+      glViewport(face.x, face.y, baseSize, baseSize);
+      glScissor(face.x, face.y, baseSize, baseSize);
+      glEnable(GL_SCISSOR_TEST);
 
-    m_camera->setYaw(origYaw + face.yawOffset);
-    m_renderer->render(*m_camera);
+      m_galaxy->renderStarFieldQuadFace(
+          static_cast<float>(baseSize), static_cast<float>(baseSize),
+          face.yawOffset);
+    }
+  } else {
+    // Planet quad-view: render planet from 4 camera angles
+    float origYaw = m_camera->getYaw();
+    float origAspect = m_camera->getAspectRatio();
+    m_camera->setAspectRatio(1.0f);
+
+    m_renderer->beginFrame();
+    for (auto& face : faces) {
+      glViewport(face.x, face.y, baseSize, baseSize);
+      glScissor(face.x, face.y, baseSize, baseSize);
+      glEnable(GL_SCISSOR_TEST);
+
+      m_camera->setYaw(origYaw + face.yawOffset);
+      m_renderer->render(*m_camera);
+    }
+
+    m_camera->setYaw(origYaw);
+    m_camera->setAspectRatio(origAspect);
   }
 
   glDisable(GL_SCISSOR_TEST);
-
-  m_camera->setYaw(origYaw);
-  m_camera->setAspectRatio(origAspect);
   glViewport(0, 0, w, h);
 
-  // Minimal overlay UI (no planet controls in hologram mode)
   m_ui->beginFrame();
 
   ImGuiIO& io = ImGui::GetIO();
@@ -1046,7 +1054,6 @@ void Application::renderQuadView(float dt) {
   }
   ImGui::End();
 
-  // Simulation controls (hidden but functional — keyboard still works)
   auto simResult = m_ui->renderSimulationControls(
       m_renderer->isPaused(), static_cast<double>(m_renderer->timeScale()),
       false, "");
@@ -1058,7 +1065,9 @@ void Application::renderQuadView(float dt) {
   }
 
   m_ui->endFrame();
-  m_renderer->endFrame();
+  if (!useGalaxyStarField) {
+    m_renderer->endFrame();
+  }
 
   if (m_ui->wasBackPressed()) {
     m_savedParams = m_renderer->params();

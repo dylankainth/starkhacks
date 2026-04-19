@@ -192,6 +192,10 @@ private:
     void updateCameraAnimation(float dt);
     void updateStarLOD();
 
+public:
+    void renderStarFieldQuadFace(float W, float H, float yawOffset);
+private:
+
     std::unique_ptr<StarRenderer>  m_starRenderer;
     std::unique_ptr<FreeFlyCamera> m_freeCamera;
     std::unique_ptr<StarData>      m_starData;

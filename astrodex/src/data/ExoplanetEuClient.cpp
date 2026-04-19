@@ -102,7 +102,7 @@ std::future<bool> ExoplanetEuClient::downloadCatalog() {
                 auto age = std::filesystem::file_time_type::clock::now() - lastWrite;
                 auto ageHours = std::chrono::duration_cast<std::chrono::hours>(age).count();
 
-                if (ageHours < 24) {
+                if (ageHours < 168) {  // 7 days
                     std::ifstream f(cachePath);
                     if (f.good()) {
                         csvData.assign(std::istreambuf_iterator<char>(f),

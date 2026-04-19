@@ -115,13 +115,20 @@ void GestureInput::parsePacket(const char* data, int len) {
         std::lock_guard<std::mutex> lock(m_mutex);
 
         if (packetType == "gesture") {
-            m_state.gesture = j.value("gesture", "none");
+            std::string newGesture = j.value("gesture", "none");
+            if (newGesture != m_state.gesture) {
+                LOG_INFO("GestureInput: {} -> {} (hand={}, confidence={:.0f}%)",
+                         m_state.gesture, newGesture,
+                         j.value("hand", "right"),
+                         j.value("confidence", 0.0f) * 100.0f);
+            }
+
+            m_state.gesture = newGesture;
             m_state.hand = j.value("hand", "right");
             m_state.confidence = j.value("confidence", 0.0f);
             m_state.fingersExtended = j.value("fingers_extended", 0);
             m_state.lastGestureTime = now;
 
-            // Parse palm position
             if (j.contains("palm") && j["palm"].is_object()) {
                 m_state.palmX = j["palm"].value("x", 0.5f);
                 m_state.palmY = j["palm"].value("y", 0.5f);

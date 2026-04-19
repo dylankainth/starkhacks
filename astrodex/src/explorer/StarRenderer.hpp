@@ -27,6 +27,7 @@ public:
 
     void beginFrame();
     void render(const FreeFlyCamera& camera, float time, float pointScale, float brightnessBoost, bool debugMode = false, float warpFactor = 0.0f);
+    void setPointSizeBoost(float boost) { m_pointSizeBoost = boost; }
     void endFrame();
 
 private:
@@ -45,6 +46,7 @@ private:
 
     static constexpr uint32_t MAX_DYNAMIC_STARS = 2'000'000;
 
+    float m_pointSizeBoost = 1.0f;
     int m_width = 0;
     int m_height = 0;
 

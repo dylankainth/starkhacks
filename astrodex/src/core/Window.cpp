@@ -48,6 +48,28 @@ Window::Window(const WindowConfig& config) {
     LOG_INFO("Renderer: {}", reinterpret_cast<const char*>(glGetString(GL_RENDERER)));
     LOG_INFO("Vendor: {}", reinterpret_cast<const char*>(glGetString(GL_VENDOR)));
 
+    GLfloat pointSizeRange[2] = {0.0f, 0.0f};
+    glGetFloatv(GL_POINT_SIZE_RANGE, pointSizeRange);
+    m_maxPointSize = pointSizeRange[1];
+    LOG_INFO("Point size range: [{}, {}]", pointSizeRange[0], pointSizeRange[1]);
+
+    std::string vendor = reinterpret_cast<const char*>(glGetString(GL_VENDOR));
+    std::string rendererStr = reinterpret_cast<const char*>(glGetString(GL_RENDERER));
+    bool isMesa = rendererStr.find("Mesa") != std::string::npos ||
+                  rendererStr.find("mesa") != std::string::npos;
+    bool isAMD = vendor.find("AMD") != std::string::npos ||
+                 vendor.find("ATI") != std::string::npos ||
+                 rendererStr.find("Radeon") != std::string::npos;
+    bool isIntel = vendor.find("Intel") != std::string::npos;
+
+    if (isMesa && (isAMD || isIntel)) {
+        m_pointSizeBoost = 2.0f;
+        LOG_INFO("Mesa driver detected — applying 2x point size boost for star visibility");
+    }
+    if (m_maxPointSize < 64.0f) {
+        LOG_WARN("Low max point size ({}) — stars may render small", m_maxPointSize);
+    }
+
     // Store dimensions
     glfwGetFramebufferSize(m_window, &m_width, &m_height);
 

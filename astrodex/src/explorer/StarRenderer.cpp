@@ -134,6 +134,7 @@ void StarRenderer::render(const FreeFlyCamera& camera, float time,
     m_shader.setFloat("uBrightnessBoost", brightnessBoost);
     m_shader.setFloat("uDebugMode", debugMode ? 1.0f : 0.0f);
     m_shader.setFloat("uWarpFactor", warpFactor);
+    m_shader.setFloat("uPointSizeBoost", m_pointSizeBoost);
 
     // Choose dynamic (LOD) or static (HYG) vertex buffer
     if (m_useDynamic && m_dynamicStarCount > 0) {

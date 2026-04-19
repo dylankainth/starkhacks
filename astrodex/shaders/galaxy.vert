@@ -7,6 +7,7 @@ layout(location = 2) in float aType;      // 0 = star, 1 = planet, 2 = selected 
 uniform mat4 uViewProjection;
 uniform vec3 uCameraPos;
 uniform float uTime;
+uniform float uPointSizeBoost;
 
 out vec4 vColor;
 out float vType;
@@ -33,8 +34,9 @@ void main() {
         vPointSize = baseSize * distanceFade * 8.0 + 2.0;
     }
 
-    // Clamp point size
-    gl_PointSize = clamp(vPointSize, 1.0, 50.0);
+    // Clamp point size (boosted on Mesa/AMD for visibility)
+    float boost = max(uPointSizeBoost, 1.0);
+    gl_PointSize = clamp(vPointSize * boost, 1.0, 50.0 * boost);
 
     vColor = vec4(aColor.rgb, 1.0);
     vType = aType;

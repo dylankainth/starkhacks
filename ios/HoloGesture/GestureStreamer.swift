@@ -30,7 +30,9 @@ struct GestureResult {
 
 enum StreamerState: Equatable {
     case idle
+    case connecting
     case streaming
+    case unreachable
     case error(String)
 }
 
@@ -113,6 +115,50 @@ final class GestureStreamer: NSObject, ObservableObject {
             return
         }
 
+        setState(.connecting)
+
+        // Probe host reachability with NWConnection (TCP) before streaming
+        let nwHost = NWEndpoint.Host(host)
+        let nwPort = NWEndpoint.Port(rawValue: port) ?? .init(integerLiteral: 9001)
+        let probe = NWConnection(host: nwHost, port: nwPort, using: .tcp)
+        probe.stateUpdateHandler = { [weak self] connState in
+            switch connState {
+            case .ready:
+                probe.cancel()
+                DispatchQueue.main.async { self?.beginStreaming() }
+            case .waiting:
+                // Host exists on network but port not open — still stream UDP
+                probe.cancel()
+                DispatchQueue.main.async { self?.beginStreaming() }
+            case .failed:
+                probe.cancel()
+                DispatchQueue.main.async {
+                    self?.setState(.unreachable)
+                    // Still start streaming — user may open the port later
+                    self?.beginStreaming()
+                }
+            default:
+                break
+            }
+        }
+
+        // Timeout: if no response in 2s, treat as unreachable but still stream
+        probe.start(queue: .global(qos: .utility))
+        DispatchQueue.global().asyncAfter(deadline: .now() + 2.0) { [weak self] in
+            guard let self = self else { return }
+            if self.state == .connecting {
+                probe.cancel()
+                DispatchQueue.main.async {
+                    self.setState(.unreachable)
+                    self.beginStreaming()
+                }
+            }
+        }
+    }
+
+    private func beginStreaming() {
+        guard fd >= 0 else { return }
+
         bootTimeOffset = Date().timeIntervalSince1970 - ProcessInfo.processInfo.systemUptime
 
         let config = ARWorldTrackingConfiguration()
@@ -124,7 +170,9 @@ final class GestureStreamer: NSObject, ObservableObject {
         sendTimestamps.removeAll()
 
         startHeartbeat()
-        setState(.streaming)
+        if state != .unreachable {
+            setState(.streaming)
+        }
     }
 
     func stop() {
@@ -359,7 +407,9 @@ final class GestureStreamer: NSObject, ObservableObject {
             bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
         ), let cgImage = context.makeImage() else { return }
 
-        let image = UIImage(cgImage: cgImage)
+        // Rotate 90° clockwise to match portrait camera orientation
+        // (depth map is delivered in landscape-right sensor orientation)
+        let image = UIImage(cgImage: cgImage, scale: 1.0, orientation: .right)
         DispatchQueue.main.async { [weak self] in
             self?.depthImage = image
         }

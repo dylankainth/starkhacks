@@ -9,6 +9,7 @@ uniform mat4 uProjection;
 uniform float uPointScale;
 uniform float uBrightnessBoost;
 uniform float uWarpFactor;       // 0 = normal, 1 = full warp
+uniform float uPointSizeBoost;
 
 out vec3 vColor;
 out float vBrightness;
@@ -52,7 +53,8 @@ void main() {
     float warpSizeBoost = 1.0 + uWarpFactor * brightFrac * (1.5 + radial * 6.0);
     size *= warpSizeBoost;
 
-    gl_PointSize = clamp(size, 1.0, 128.0);
+    float boost = max(uPointSizeBoost, 1.0);
+    gl_PointSize = clamp(size * boost, 1.0, 128.0 * boost);
 
     // Brightness: dim stars get dimmer during warp, bright stars get mild boost
     vBrightness = baseBrightness * uBrightnessBoost;

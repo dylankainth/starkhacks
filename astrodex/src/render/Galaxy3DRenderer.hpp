@@ -61,6 +61,8 @@ public:
     // Galaxy bounds for camera limits
     float getGalaxyRadius() const { return m_galaxyRadius; }
 
+    void setPointSizeBoost(float boost) { m_pointSizeBoost = boost; }
+
 private:
     void uploadStarData();
     void uploadObjectData();
@@ -82,6 +84,7 @@ private:
     int m_selectedId = -1;
     float m_galaxyRadius = 1000.0f;  // Light years scale (visual)
 
+    float m_pointSizeBoost = 1.0f;
     bool m_initialized = false;
 };
 

@@ -345,6 +345,7 @@ void Galaxy3DRenderer::render(const glm::mat4& viewProjection, const glm::vec3& 
     m_shader.setMat4("uViewProjection", viewProjection);
     m_shader.setVec3("uCameraPos", cameraPos);
     m_shader.setFloat("uTime", time);
+    m_shader.setFloat("uPointSizeBoost", m_pointSizeBoost);
 
     // Draw stars first (background)
     if (!m_stars.empty()) {

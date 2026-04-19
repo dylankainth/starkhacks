@@ -50,6 +50,7 @@ public:
     void setFetchMetadataCallback(std::function<void(const std::string&)> cb);
     void setExoplanetStatus(const std::string& status);
     void setFetchingMetadata(bool fetching) { m_fetchingMetadata = fetching; }
+    void setPointSizeBoost(float boost) { m_pointSizeBoost = boost; }
 
     // Update a planet's metadata (call after fetching from NASA)
     void updatePlanetMetadata(const std::string& name, const std::string& hostStar,
@@ -197,6 +198,7 @@ private:
     std::unique_ptr<StarLOD>       m_starLOD;
 
     // Star render settings
+    float m_pointSizeBoost   = 1.0f;
     float m_pointScale      = 2.0f;
     float m_brightnessBoost = 1.5f;
     bool  m_debugStars      = false;

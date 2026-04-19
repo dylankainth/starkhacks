@@ -67,12 +67,12 @@ struct ContentView: View {
                     // Start/Stop button + toggles
                     HStack(spacing: 12) {
                         Button(action: toggleStreaming) {
-                            Text(isStreaming ? "Stop" : "Start")
+                            Text(isActive ? "Stop" : "Start")
                                 .font(.headline)
                                 .foregroundColor(.white)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 12)
-                                .background(isStreaming ? Color.red : Color.green)
+                                .background(isActive ? Color.red : Color.green)
                                 .cornerRadius(10)
                         }
 
@@ -201,8 +201,15 @@ struct ContentView: View {
 
     // MARK: - Actions
 
+    private var isActive: Bool {
+        switch streamer.state {
+        case .connecting, .streaming, .unreachable: return true
+        default: return false
+        }
+    }
+
     private func toggleStreaming() {
-        if isStreaming {
+        if isActive {
             streamer.stop()
             streamer.stopBrowsing()
             isStreaming = false
@@ -250,7 +257,9 @@ struct ContentView: View {
     private var statusColor: Color {
         switch streamer.state {
         case .idle: return .gray
+        case .connecting: return .yellow
         case .streaming: return .green
+        case .unreachable: return .orange
         case .error: return .red
         }
     }
@@ -258,7 +267,9 @@ struct ContentView: View {
     private var statusText: String {
         switch streamer.state {
         case .idle: return "Idle"
+        case .connecting: return "Connecting to \(ipAddress):\(port)..."
         case .streaming: return "Streaming to \(ipAddress):\(port)"
+        case .unreachable: return "Unreachable \u{2014} streaming anyway"
         case .error(let msg): return msg
         }
     }

@@ -80,6 +80,7 @@ void GalaxyView::init(float W, float H) {
     m_freeCamera->setAspectRatio(W / std::max(H, 1.0f));
 
     m_starRenderer = std::make_unique<StarRenderer>();
+    m_starRenderer->setPointSizeBoost(m_pointSizeBoost);
     // Use framebuffer size (not logical size) for Retina/HiDPI
     ImGuiIO& initIO = ImGui::GetIO();
     int fbW = static_cast<int>(W * initIO.DisplayFramebufferScale.x);

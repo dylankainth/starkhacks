@@ -145,6 +145,9 @@ void Application::init() {
   m_gestureInput = std::make_unique<GestureInput>(9001);
   m_gestureInput->start();
 
+  // Pass GPU-specific point size boost to renderers
+  m_galaxy->setPointSizeBoost(m_window->getPointSizeBoost());
+
   m_lastFrameTime = m_window->getTime();
   LOG_INFO("Ready");
 }
@@ -971,66 +974,57 @@ void Application::handleGestureInput(float dt) {
 void Application::renderQuadView(float dt) {
   int w = m_window->getWidth();
   int h = m_window->getHeight();
-  int halfW = w / 2;
-  int halfH = h / 2;
 
-  // Save original camera yaw
+  // Diamond/cross layout matching the Pepper's Ghost pyramid geometry.
+  // Each face is a square centered on an edge of the screen.
+  // Size = min(w,h)/3 so four faces fit without overlap.
+  int baseSize = std::min(w, h) / 3;
+  int cx = w / 2;
+  int cy = h / 2;
+
   float origYaw = m_camera->getYaw();
+  float origAspect = m_camera->getAspectRatio();
+  m_camera->setAspectRatio(1.0f);  // Square viewports
 
-  // Four viewports for Pepper's Ghost prism:
-  // Front (0 deg), Right (90 deg), Left (270 deg), Back (180 deg)
-  // Each view is horizontally mirrored for the reflective prism
-  struct QuadViewport {
-    int x, y, vw, vh;
+  struct QuadFace {
+    int x, y;
     float yawOffset;
   };
 
-  // Layout: top-left=Front, top-right=Right, bottom-left=Left, bottom-right=Back
-  QuadViewport views[] = {
-    {0,     halfH, halfW, halfH, 0.0f},                              // Front (top-left)
-    {halfW, halfH, halfW, halfH, static_cast<float>(M_PI / 2.0)},    // Right (top-right)
-    {0,     0,     halfW, halfH, static_cast<float>(3.0 * M_PI / 2.0)}, // Left (bottom-left)
-    {halfW, 0,     halfW, halfH, static_cast<float>(M_PI)}           // Back (bottom-right)
+  // Pepper's Ghost: each acrylic panel reflects from one screen edge.
+  // Back face → top, front face → bottom, left → left, right → right.
+  // Content is horizontally mirrored because the viewer sees a reflection.
+  QuadFace faces[] = {
+    {cx - baseSize / 2, h - baseSize,     static_cast<float>(M_PI)},           // Top = back (+180°)
+    {cx - baseSize / 2, 0,                0.0f},                                // Bottom = front (0°)
+    {0,                 cy - baseSize / 2, static_cast<float>(3.0 * M_PI / 2.0)}, // Left (-90°)
+    {w - baseSize,      cy - baseSize / 2, static_cast<float>(M_PI / 2.0)}     // Right (+90°)
   };
 
-  // Update time (only once)
-  if (!m_renderer->isPaused()) {
-    // Time is updated inside render(), so we just call render for each viewport
-  }
+  // Clear to black (the area between quadrants must be black for the hologram)
+  glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
   m_renderer->beginFrame();
 
-  for (auto& vp : views) {
-    glViewport(vp.x, vp.y, vp.vw, vp.vh);
+  for (auto& face : faces) {
+    glViewport(face.x, face.y, baseSize, baseSize);
+    glScissor(face.x, face.y, baseSize, baseSize);
+    glEnable(GL_SCISSOR_TEST);
 
-    // Apply yaw offset for this view direction
-    m_camera->setYaw(origYaw + vp.yawOffset);
-
-    // Render the scene into this viewport
+    m_camera->setYaw(origYaw + face.yawOffset);
     m_renderer->render(*m_camera);
   }
 
-  // Restore original yaw and full viewport
+  glDisable(GL_SCISSOR_TEST);
+
   m_camera->setYaw(origYaw);
+  m_camera->setAspectRatio(origAspect);
   glViewport(0, 0, w, h);
 
-  // Render UI on top (full viewport)
+  // Minimal overlay UI (no planet controls in hologram mode)
   m_ui->beginFrame();
-  m_ui->render(m_renderer->params());
-  m_ui->renderThemeToggle();
 
-  // Simulation controls
-  auto simResult = m_ui->renderSimulationControls(
-      m_renderer->isPaused(), static_cast<double>(m_renderer->timeScale()),
-      false, "");
-  if (simResult.pauseToggled) {
-    m_renderer->setPaused(!m_renderer->isPaused());
-  }
-  if (simResult.timeScaleChanged) {
-    m_renderer->setTimeScale(static_cast<float>(simResult.newTimeScale));
-  }
-
-  // Show quad-view indicator
   ImGuiIO& io = ImGui::GetIO();
   ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x / 2 - 80, 5));
   ImGui::SetNextWindowBgAlpha(0.7f);
@@ -1043,17 +1037,28 @@ void Application::renderQuadView(float dt) {
     ImGui::TextColored(ImVec4(0.3f, 1.0f, 0.3f, 1.0f), "HOLOGRAM MODE");
     ImGui::SameLine();
     if (gestureConnected) {
-      ImGui::TextColored(ImVec4(0.3f, 1.0f, 0.3f, 1.0f), " | Gesture OK");
+      auto gs = m_gestureInput->getState();
+      ImGui::TextColored(ImVec4(0.3f, 1.0f, 0.3f, 1.0f), " | %s", gs.gesture.c_str());
     } else {
       ImGui::TextColored(ImVec4(1.0f, 0.4f, 0.4f, 1.0f), " | No Gesture");
     }
   }
   ImGui::End();
 
+  // Simulation controls (hidden but functional — keyboard still works)
+  auto simResult = m_ui->renderSimulationControls(
+      m_renderer->isPaused(), static_cast<double>(m_renderer->timeScale()),
+      false, "");
+  if (simResult.pauseToggled) {
+    m_renderer->setPaused(!m_renderer->isPaused());
+  }
+  if (simResult.timeScaleChanged) {
+    m_renderer->setTimeScale(static_cast<float>(simResult.newTimeScale));
+  }
+
   m_ui->endFrame();
   m_renderer->endFrame();
 
-  // Back button returns to galaxy
   if (m_ui->wasBackPressed()) {
     m_savedParams = m_renderer->params();
     m_renderer->params().radius = 0.001f;

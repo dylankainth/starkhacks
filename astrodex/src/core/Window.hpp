@@ -43,6 +43,8 @@ public:
     int getHeight() const { return m_height; }
     float getAspectRatio() const { return static_cast<float>(m_width) / static_cast<float>(m_height); }
     double getTime() const;
+    float getMaxPointSize() const { return m_maxPointSize; }
+    float getPointSizeBoost() const { return m_pointSizeBoost; }
 
     // Input state
     bool isKeyPressed(int key) const;
@@ -60,6 +62,8 @@ private:
     GLFWwindow* m_window = nullptr;
     int m_width = 0;
     int m_height = 0;
+    float m_maxPointSize = 128.0f;
+    float m_pointSizeBoost = 1.0f;
 
     // Callbacks
     ResizeCallback m_resizeCallback;

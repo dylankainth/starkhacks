@@ -10,8 +10,8 @@ const FRAME_COLOR = 0x00ffff;
 const GRID_COLOR = 0x0066aa;
 const SLOT_COLOR = 0x00ffff;
 
-export const P1_COLOR = 0xff3355;
-export const P2_COLOR = 0xffdd33;
+export const P1_COLOR = 0xff5522; // warm rocky world — "Mars"
+export const P2_COLOR = 0x33aaff; // ice giant — "Neptune"
 const WIN_COLOR = 0xffffff;
 
 export interface BoardView {
@@ -74,10 +74,9 @@ export function createBoard(): BoardView {
     }
   }
 
-  // Disc geometry + materials (shared across all disc meshes).
-  // Emissive-only standard material so bloom picks them up as glowing sources.
-  const discGeo = new THREE.CylinderGeometry(CELL * 0.36, CELL * 0.36, BOARD_DEPTH * 0.55, 32);
-  discGeo.rotateX(Math.PI / 2);
+  // Planet geometry + materials (shared across all planet meshes).
+  // Sphere reads as a planet from every viewing angle around the pyramid.
+  const discGeo = new THREE.SphereGeometry(CELL * 0.36, 24, 16);
   const p1Mat = new THREE.MeshStandardMaterial({
     color: 0x000000,
     emissive: P1_COLOR,

@@ -20,6 +20,48 @@ renderer.autoClear = false;
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x000000);
 
+// Starfield: distant points on a sphere shell around the origin so every
+// quadrant camera sees a different slice of the cosmos. enableAll() makes the
+// stars visible to the side-panel cameras too (they otherwise render layer 1 only).
+function createStarfield(): THREE.Points {
+  const STAR_COUNT = 420;
+  const positions = new Float32Array(STAR_COUNT * 3);
+  const colors = new Float32Array(STAR_COUNT * 3);
+  for (let i = 0; i < STAR_COUNT; i++) {
+    const theta = Math.random() * Math.PI * 2;
+    const phi = Math.acos(2 * Math.random() - 1);
+    const r = 9 + Math.random() * 5;
+    positions[i * 3] = r * Math.sin(phi) * Math.cos(theta);
+    positions[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
+    positions[i * 3 + 2] = r * Math.cos(phi);
+    const b = 0.35 + Math.random() * 0.65;
+    const warm = Math.random();
+    colors[i * 3] = b * (0.75 + warm * 0.25);
+    colors[i * 3 + 1] = b * 0.9;
+    colors[i * 3 + 2] = b * (0.75 + (1 - warm) * 0.25);
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+  const points = new THREE.Points(
+    geo,
+    new THREE.PointsMaterial({
+      size: 0.04,
+      vertexColors: true,
+      transparent: true,
+      opacity: 0.9,
+      sizeAttenuation: true,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+    }),
+  );
+  points.frustumCulled = false;
+  points.layers.enableAll();
+  return points;
+}
+const stars = createStarfield();
+scene.add(stars);
+
 const boardView = createBoard();
 scene.add(boardView.group);
 
@@ -118,13 +160,19 @@ const backCam = makeCam();
 backCam.position.set(0, 0, -CAM_DISTANCE);
 backCam.lookAt(0, 0, 0);
 
+// Roll the side cameras 90° so the side-panel content (turn ring at +Y, cursor
+// dots along Z) renders with its "top" pointing toward the screen center when
+// the quadrants are placed on the left and right of the monitor. That way the
+// red cursor dots face inward and reflect correctly off the side pyramid faces.
 const leftCam = makeCam();
 leftCam.position.set(-CAM_DISTANCE, 0, 0);
+leftCam.up.set(0, 0, -1);
 leftCam.lookAt(0, 0, 0);
 leftCam.layers.set(SIDE_PANEL_LAYER);
 
 const rightCam = makeCam();
 rightCam.position.set(CAM_DISTANCE, 0, 0);
+rightCam.up.set(0, 0, -1);
 rightCam.lookAt(0, 0, 0);
 rightCam.layers.set(SIDE_PANEL_LAYER);
 
@@ -167,6 +215,7 @@ function tick(): void {
 
   particles.update(dt);
   sidePanel.update(dt);
+  stars.rotation.y += dt * 0.015;
 
   // Ambient sparkle on winning cells once the game is over.
   if (state.status === 'win' && state.winningCells && Math.random() < 0.45) {

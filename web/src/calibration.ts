@@ -65,23 +65,26 @@ export function computeQuadRect(
   const cx = Math.floor(w / 2);
   const cy = Math.floor(h / 2);
   const size = Math.max(20, baseSize + cal.sizeDelta);
+  // Every quadrant sits flush with a central baseSize×baseSize square where the
+  // physical pyramid base rests. This keeps reflections aligned with the acrylic
+  // faces; any further per-rig nudging is done with the calibration HUD (press C).
   let bx: number;
   let by: number;
   switch (quad) {
     case 'top':
       bx = cx - baseSize / 2;
-      by = h - baseSize;
+      by = cy + baseSize / 2;
       break;
     case 'bottom':
       bx = cx - baseSize / 2;
-      by = 0;
+      by = cy - 1.5 * baseSize;
       break;
     case 'left':
-      bx = 0;
+      bx = cx - 1.5 * baseSize;
       by = cy - baseSize / 2;
       break;
     case 'right':
-      bx = w - baseSize;
+      bx = cx + baseSize / 2;
       by = cy - baseSize / 2;
       break;
   }

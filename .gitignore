@@ -1,1 +1,17 @@
 venv
+.venv/
+__pycache__/
+*.pyc
+
+# Xcode
+*.xcodeproj/
+*.xcworkspace/
+build/
+DerivedData/
+*.xcuserdatad/
+
+# macOS
+.DS_Store
+
+# Firecrawl cache
+.firecrawl/

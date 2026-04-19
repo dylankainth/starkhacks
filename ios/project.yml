@@ -1,0 +1,27 @@
+name: HoloGesture
+options:
+  createIntermediateGroups: true
+  generateEmptyDirectories: true
+targets:
+  HoloGesture:
+    type: application
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - path: HoloGesture
+    settings:
+      INFOPLIST_FILE: HoloGesture/Info.plist
+      PRODUCT_BUNDLE_IDENTIFIER: com.starkhacks.hologesture
+      DEVELOPMENT_TEAM: ""
+      SWIFT_VERSION: "5.0"
+      TARGETED_DEVICE_FAMILY: "1"
+    dependencies: []
+schemes:
+  HoloGesture:
+    build:
+      targets:
+        HoloGesture: all
+    run:
+      config: Debug
+    archive:
+      config: Release
